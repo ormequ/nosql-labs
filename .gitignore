@@ -1,0 +1,8 @@
+# secrets and local-only files
+vault.yml
+.vault_pass*
+*.env
+.venv/
+__pycache__/
+*.retry
+.DS_Store
