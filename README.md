@@ -9,4 +9,4 @@
 | 3 | Эксплуатация Redis | [lab3-redis](lab3-redis) |
 | 4 | Эксплуатация ClickHouse | [lab4-clickhouse](lab4-clickhouse) |
 
-Отчёт по каждой лабе - `README.md` в её папке.
+Отчет по каждой лабе - `README.md` в ее папке.
