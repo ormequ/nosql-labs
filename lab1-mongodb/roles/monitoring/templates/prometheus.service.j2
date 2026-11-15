@@ -1,0 +1,15 @@
+[Unit]
+Description=Prometheus
+After=network.target
+
+[Service]
+Type=simple
+User=prometheus
+ExecStart=/usr/local/bin/prometheus \
+  --config.file={{ monitoring_prometheus_conf }}/prometheus.yml \
+  --storage.tsdb.path={{ monitoring_prometheus_data }} \
+  --web.listen-address={{ monitoring_listen_ip }}:{{ monitoring_prometheus_port }}
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

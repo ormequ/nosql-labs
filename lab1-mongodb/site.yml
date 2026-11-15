@@ -1,0 +1,12 @@
+# Lab 1: MongoDB, community.mongodb roles run on the pymongo venv the mongodb role creates
+- name: Deploy MongoDB
+  hosts: mongo
+  vars_files:
+    # Vault path from LAB1_VAULT, vault.yml by default
+    - "{{ lookup('env', 'LAB1_VAULT') | default('vault.yml', true) }}"
+  roles:
+    - mongodb
+    - { role: seed, vars: { ansible_python_interpreter: "{{ mongodb_pymongo_venv }}/bin/python" } }
+    - { role: rbac, vars: { ansible_python_interpreter: "{{ mongodb_pymongo_venv }}/bin/python" } }
+    - { role: backup, vars: { ansible_python_interpreter: "{{ mongodb_pymongo_venv }}/bin/python" } }
+    - monitoring

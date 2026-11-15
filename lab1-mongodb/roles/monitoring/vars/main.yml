@@ -1,0 +1,22 @@
+# versions pinned, URLs split into short parts to fit the lint line limit
+monitoring_exporter_version: "0.54.0"
+monitoring_prometheus_version: "3.16.0"
+monitoring_grafana_version: "13.3.0"
+monitoring_grafana_build: "40412481033"
+
+monitoring_github: "https://github.com"
+monitoring_dl: "releases/download"
+
+monitoring_gh_exporter: "{{ monitoring_github }}/percona/mongodb_exporter"
+monitoring_gh_prometheus: "{{ monitoring_github }}/prometheus/prometheus"
+monitoring_gh_grafana: "{{ monitoring_github }}/grafana/grafana"
+monitoring_file_exporter: "mongodb_exporter-{{ monitoring_exporter_version }}.linux-amd64.tar.gz"
+monitoring_file_prometheus: "prometheus-{{ monitoring_prometheus_version }}.linux-amd64.tar.gz"
+monitoring_file_grafana: "grafana_{{ monitoring_grafana_version }}_{{ monitoring_grafana_build }}_linux_amd64.deb"
+
+monitoring_exporter_url: "{{ monitoring_gh_exporter }}/{{ monitoring_dl }}/v{{ monitoring_exporter_version }}/{{ monitoring_file_exporter }}"
+monitoring_prometheus_url: "{{ monitoring_gh_prometheus }}/{{ monitoring_dl }}/v{{ monitoring_prometheus_version }}/{{ monitoring_file_prometheus }}"
+monitoring_grafana_url: "{{ monitoring_gh_grafana }}/{{ monitoring_dl }}/v{{ monitoring_grafana_version }}/{{ monitoring_file_grafana }}"
+# fixed install paths of the Prometheus unit
+monitoring_prometheus_data: /var/lib/prometheus
+monitoring_prometheus_conf: /etc/prometheus

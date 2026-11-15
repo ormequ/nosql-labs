@@ -1,0 +1,40 @@
+# synchronous on purpose: a finished playbook means the load has truly ended
+- name: Create load directory
+  tags: [load]
+  ansible.builtin.file:
+    path: "{{ load_dir }}"
+    state: directory
+    mode: "0755"
+
+# Task 4.4: load generator, password read from a root-only file
+# the password stays off the command line
+- name: Install load credentials file
+  tags: [load]
+  ansible.builtin.template:
+    src: load-credentials.conf.j2
+    dest: /root/.mongodb-load.conf
+    mode: "0600"
+
+- name: Copy load generator
+  tags: [load]
+  ansible.builtin.copy:
+    src: load_gen.py
+    dest: "{{ load_dir }}/load_gen.py"
+    mode: "0755"
+
+# Task 4.4: load run
+- name: Run the load generator
+  ansible.builtin.command:
+    cmd: >-
+      {{ mongodb_pymongo_venv }}/bin/python {{ load_dir }}/load_gen.py --host {{ load_host }}:{{ load_mongodb_port }}
+      --user {{ mongodb_admin_user }} --password-file /root/.mongodb-load.conf
+      --db {{ load_db }} --collection {{ load_coll }}
+      --workers {{ load_workers }} --seconds {{ load_seconds }}
+  register: load_job
+  changed_when: false  # writes load data, not machine state
+  tags: [run]
+
+- name: Show load job info
+  ansible.builtin.debug:
+    msg: "load done: {{ load_job.stdout | default('') | trim }}"
+  tags: [run]

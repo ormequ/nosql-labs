@@ -1,0 +1,197 @@
+{
+  "title": "MongoDB lab1",
+  "uid": "mongodb-lab1",
+  "tags": [
+    "lab1",
+    "mongodb"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 41,
+  "refresh": "5s",
+  "editable": true,
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Operations per second (insert/query/update/delete)",
+      "description": "Число операций каждого типа в секунду: показывает, какие операции создает нагрузка.",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(mongodb_ss_opcounters{legacy_op_type=\"insert\"}[1m])",
+          "legendFormat": "insert"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(mongodb_ss_opcounters{legacy_op_type=\"query\"}[1m])",
+          "legendFormat": "query"
+        },
+        {
+          "refId": "C",
+          "expr": "rate(mongodb_ss_opcounters{legacy_op_type=\"update\"}[1m])",
+          "legendFormat": "update"
+        },
+        {
+          "refId": "D",
+          "expr": "rate(mongodb_ss_opcounters{legacy_op_type=\"delete\"}[1m])",
+          "legendFormat": "delete"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Active connections",
+      "description": "Активные подключения: рост означает нагрузку.",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "mongodb_ss_connections{conn_type=\"active\"}",
+          "legendFormat": "active"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Available connections",
+      "description": "Свободные слоты подключений.",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "mongodb_ss_connections{conn_type=\"available\"}",
+          "legendFormat": "available"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "WiredTiger cache: pages read into cache",
+      "description": "Чтение страниц в кэш WiredTiger: показывает, помещается ли рабочая выборка в памяти.",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(mongodb_ss_wt_cache_pages_read_into_cache[1m])",
+          "legendFormat": "pages/s"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Query latency (avg us per op)",
+      "description": "Средняя задержка чтений/записей за минуту: отношение скорости роста суммарного времени операций к скорости роста их числа, в микросекундах. Рост означает, что БД не успевает за нагрузкой",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(mongodb_ss_opLatencies_latency{op_type=\"reads\"}[1m]) / rate(mongodb_ss_opLatencies_ops{op_type=\"reads\"}[1m])",
+          "legendFormat": "read"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(mongodb_ss_opLatencies_latency{op_type=\"writes\"}[1m]) / rate(mongodb_ss_opLatencies_ops{op_type=\"writes\"}[1m])",
+          "legendFormat": "write"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "µs"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Memory: resident / virtual",
+      "description": "Резидентная и виртуальная память mongod: контроль за потреблением RAM под нагрузкой.",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "mongodb_ss_mem_resident",
+          "legendFormat": "resident MB"
+        },
+        {
+          "refId": "B",
+          "expr": "mongodb_ss_mem_virtual",
+          "legendFormat": "virtual MB"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Document operations per second",
+      "description": "Документные операции (returned/inserted/modified): детали влияния нагрузки на данные.",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(mongodb_ss_metrics_document{doc_op_type=\"returned\"}[1m])",
+          "legendFormat": "returned"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(mongodb_ss_metrics_document{doc_op_type=\"inserted\"}[1m])",
+          "legendFormat": "inserted"
+        },
+        {
+          "refId": "C",
+          "expr": "rate(mongodb_ss_metrics_document{doc_op_type=\"updated\"}[1m])",
+          "legendFormat": "modified"
+        }
+      ]
+    }
+  ]
+}

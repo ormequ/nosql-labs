@@ -1,0 +1,5 @@
+# the localhost exception admits one first user, created in the admin db
+seed_admin_db: admin
+seed_js_dir: /opt/seed
+# one-time marker of the localhost-exception bootstrap
+seed_admin_marker: /root/mongodb_admin.success

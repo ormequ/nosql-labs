@@ -1,0 +1,12 @@
+# The repo key and keyring paths must not be silently overridden
+mongodb_repo_key: "https://www.mongodb.org/static/pgp/server-8.0.asc"
+mongodb_keyring: /usr/share/keyrings/mongodb-server-8.0.gpg
+mongodb_pkgs:
+  - mongodb-org-server
+  - mongodb-mongosh
+  - mongodb-database-tools
+# 0600 file that keeps mongodump/mongorestore passwords off the command line
+mongodb_tools_conf: /root/.mongodb-tools.conf
+# community.mongodb needs pymongo 4+, Ubuntu 24.04 ships only 3.11, hence the venv
+mongodb_pymongo_venv: /opt/pymongo-venv
+mongodb_pymongo_version: "4.20.0"

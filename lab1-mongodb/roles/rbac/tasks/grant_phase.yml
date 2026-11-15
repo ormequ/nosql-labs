@@ -1,0 +1,57 @@
+# Runs once per phase from tasks/main.yml; rbac_grant_phase is grant or revoke
+# task login lines are stripped here only if the module_defaults of the parent block fill them
+- name: "Set the demo user's role list ({{ rbac_grant_phase }})"
+  community.mongodb.mongodb_user:
+    database: "{{ rbac_grant_db }}"
+    name: "{{ rbac_grant_user }}"
+    password: "{{ rbac_users[rbac_grant_user].password }}"
+    roles: "{{ [] if rbac_grant_phase == 'revoke' else rbac_grant_role_pair }}"
+    update_password: on_create
+  vars:
+    rbac_grant_role_pair:
+      - db: "{{ rbac_grant_db }}"
+        role: "{{ rbac_grant_role }}"
+  no_log: true
+
+- name: "Try reading the target collection as the demo user ({{ rbac_grant_phase }})"
+  community.mongodb.mongodb_shell:
+    login_user: "{{ rbac_grant_user }}"
+    login_password: "{{ rbac_users[rbac_grant_user].password }}"
+    login_database: "{{ rbac_grant_db }}"
+    db: "{{ rbac_grant_db }}"
+    eval: 'db.orders.find().limit(1).toArray().length'
+    transform: raw
+  changed_when: false
+  ignore_errors: true
+  register: rbac_grant_read
+
+- name: "Report the read after {{ rbac_grant_phase }}"
+  ansible.builtin.debug:
+    msg: >-
+      after {{ rbac_grant_phase }}:
+      {{ 'read ok, fetched ' ~ rbac_grant_read.transformed_output ~ ' doc(s)'
+         if rbac_grant_read is successful
+         else 'refused: ' ~ rbac_grant_read.msg }}
+
+- name: "Assert the read matched the phase ({{ rbac_grant_phase }})"
+  ansible.builtin.assert:
+    that:
+      - rbac_grant_read is failed or 'grant' == rbac_grant_phase
+      - rbac_grant_read is successful or 'revoke' == rbac_grant_phase
+      - "'not authorized' not in rbac_grant_read.msg or 'revoke' == rbac_grant_phase"
+    fail_msg: "the {{ rbac_grant_phase }} phase did not change the read access"
+
+- name: "Show the demo user's roles ({{ rbac_grant_phase }})"
+  community.mongodb.mongodb_shell:
+    login_user: "{{ rbac_grant_user }}"
+    login_password: "{{ rbac_users[rbac_grant_user].password }}"
+    login_database: "{{ rbac_grant_db }}"
+    db: "{{ rbac_grant_db }}"
+    eval: 'db.getUser("{{ rbac_grant_user }}").roles.map(r => r.role)'
+    transform: raw
+  changed_when: false
+  register: rbac_grant_roles
+
+- name: "Print roles after {{ rbac_grant_phase }}"
+  ansible.builtin.debug:
+    msg: "roles now: {{ rbac_grant_roles.transformed_output }}"

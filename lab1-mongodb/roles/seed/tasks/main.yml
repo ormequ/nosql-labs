@@ -1,0 +1,69 @@
+# first admin uses the localhost exception, the marker skips it on later runs
+- name: Check the admin bootstrap marker
+  tags: [rbac]
+  ansible.builtin.stat:
+    path: "{{ seed_admin_marker }}"
+  register: seed_admin_marker_stat
+
+# update_password must be always to use the localhost exception (module docs)
+- name: Create the first admin user
+  tags: [rbac]
+  community.mongodb.mongodb_user:
+    login_host: 127.0.0.1
+    login_port: "{{ mongodb_port }}"
+    database: "{{ seed_admin_db }}"
+    name: "{{ mongodb_admin_user }}"
+    password: "{{ mongodb_admin_password }}"
+    roles: [root]
+    update_password: always
+  no_log: true
+  register: seed_admin_created
+  when: not seed_admin_marker_stat.stat.exists
+
+- name: Touch the admin bootstrap marker
+  tags: [rbac]
+  ansible.builtin.file:
+    path: "{{ seed_admin_marker }}"
+    state: touch
+    mode: "0600"
+  when: not seed_admin_marker_stat.stat.exists
+
+- name: Show admin bootstrap result
+  tags: [rbac]
+  ansible.builtin.debug:
+    msg: "admin user: {{ 'created' if seed_admin_created is changed else 'already present' }}"
+
+# Task 2.1: training databases
+# One script per training database, auth inside the 0600 file
+- name: Create seed script directory
+  tags: [rbac]
+  ansible.builtin.file:
+    path: "{{ seed_js_dir }}"
+    state: directory
+    mode: "0750"
+
+- name: Copy seed data script per database
+  tags: [rbac, seed]
+  ansible.builtin.template:
+    src: seed_db.js.j2
+    dest: "{{ seed_js_dir }}/seed_{{ item.key }}.js"
+    mode: "0600"
+  loop: "{{ seed_databases | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Run seed script for each database
+  tags: [rbac, seed]
+  ansible.builtin.command:
+    cmd: mongosh --quiet --host 127.0.0.1:{{ mongodb_port }} --file {{ seed_js_dir }}/seed_{{ item.key }}.js
+  loop: "{{ seed_databases | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  register: seed_run
+  # the script skips collections that already have data, reruns change nothing
+  changed_when: false
+
+- name: Show seed results
+  tags: [rbac, seed]
+  ansible.builtin.debug:
+    msg: "{{ seed_run.results | map(attribute='stdout_lines') | flatten }}"

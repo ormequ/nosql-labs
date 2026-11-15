@@ -1,0 +1,34 @@
+# Task 2.1: custom roles and users
+# passwords live in the git-ignored vault under rbac_user_passwords
+# grigory exists only for the grant/revoke and drop demos
+rbac_users:
+  anna:
+    password: "{{ rbac_user_passwords['anna'] }}"
+  boris:
+    password: "{{ rbac_user_passwords['boris'] }}"
+  vera:
+    password: "{{ rbac_user_passwords['vera'] }}"
+  grigory:
+    password: "{{ rbac_user_passwords['grigory'] }}"
+
+# Task 4.1: exporter user, the vault holds its credentials, the role is read-only
+rbac_exporter_user: "{{ exporter_user }}"
+
+# Task 2.3: grant and revoke
+rbac_grant_role: shopReader
+rbac_grant_db: shop
+rbac_grant_user: grigory
+
+# Task 2.4: role privileges demo
+rbac_change_role: libraryWriter
+rbac_change_role_db: library
+
+# Task 2.5: collection-only access
+rbac_coll_user: vera
+rbac_coll_db: library
+rbac_coll_allowed: books
+rbac_coll_denied: readers
+
+# Task 2.6: drop role and user
+rbac_drop_role: shopReader
+rbac_drop_user: grigory

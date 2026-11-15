@@ -1,0 +1,222 @@
+# Task 2.1: custom roles and users; setup runs always, demos only via their tags
+# module_defaults gives every mongod module the shared admin login, task args override it
+- name: RBAC tasks
+  module_defaults:
+    community.mongodb.mongodb_role: &rbac_admin_login
+      login_host: 127.0.0.1
+      login_port: "{{ mongodb_port }}"
+      login_user: "{{ mongodb_admin_user }}"
+      login_password: "{{ mongodb_admin_password }}"
+      login_database: "{{ rbac_admin_db }}"
+    community.mongodb.mongodb_user: *rbac_admin_login
+    community.mongodb.mongodb_shell: *rbac_admin_login
+  block:
+    - name: Create custom roles
+      tags: [rbac_setup, roles]
+      community.mongodb.mongodb_role:
+        database: "{{ item.db }}"
+        name: "{{ item.name }}"
+        privileges: "{{ item.privileges }}"
+        state: present
+      loop: "{{ rbac_roles }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Create users with their roles
+      tags: [rbac_setup, roles]
+      community.mongodb.mongodb_user:
+        database: "{{ item.0.db }}"
+        name: "{{ item.1 }}"
+        password: "{{ rbac_users[item.1].password }}"
+        roles:
+          - db: "{{ item.0.db }}"
+            role: "{{ item.0.name }}"
+        update_password: on_create
+      no_log: true
+      loop: "{{ rbac_roles | subelements('users') }}"
+      loop_control:
+        label: "{{ item.1 }}"
+
+    - name: Show existing roles and users
+      tags: [rbac_setup, roles]
+      community.mongodb.mongodb_shell:
+        eval: >-
+          db.getSiblingDB("{{ item }}").getRoles().roles.map(r => "role " + r.role + " on {{ item }}")
+          .concat(db.getSiblingDB("{{ item }}").getUsers().users.map(u => "user " + u.user + ": " + u.roles.map(r => r.role)))
+        transform: raw
+      # one eval per database, not one per role
+      loop: "{{ rbac_roles | map(attribute='db') | unique }}"
+      loop_control:
+        label: "{{ item }}"
+      register: rbac_roles_show
+      changed_when: false
+
+    - name: List custom roles and users
+      tags: [rbac_setup, roles]
+      ansible.builtin.debug:
+        msg: "{{ rbac_roles_show.results | map(attribute='transformed_output') | flatten }}"
+
+    # Task 4.1: exporter user, clusterMonitor instead of admin (least privilege)
+    - name: Create the exporter user
+      tags: [rbac_setup, roles, monitoring]
+      community.mongodb.mongodb_user:
+        database: "{{ rbac_exporter_db }}"
+        name: "{{ rbac_exporter_user }}"
+        password: "{{ exporter_password }}"
+        roles:
+          - db: "{{ rbac_exporter_db }}"
+            role: "{{ rbac_exporter_role }}"
+        update_password: on_create
+      no_log: true
+      register: rbac_exporter_created
+
+    - name: Show exporter user result
+      tags: [rbac_setup, roles, monitoring]
+      ansible.builtin.debug:
+        msg: "exporter user: {{ 'created' if rbac_exporter_created is changed else 'already present' }}"
+
+    # Task 2.3: grant and revoke
+    # the grant-read tasks log in as the demo user itself, so they override the defaults
+    - name: Create the demo user for the grant
+      tags: [never, grant]
+      community.mongodb.mongodb_user:
+        database: "{{ rbac_grant_db }}"
+        name: "{{ rbac_grant_user }}"
+        password: "{{ rbac_users[rbac_grant_user].password }}"
+        roles: []
+        update_password: on_create
+      no_log: true
+
+    # grant, then revoke: one phase fully proves itself before the next starts
+    # apply passes the tag down, on a dynamic include the wrapper tag alone filters children out
+    - name: Run the grant and the revoke phase for the demo user
+      ansible.builtin.include_tasks:
+        file: grant_phase.yml
+        apply:
+          tags: [grant]
+      tags: [never, grant]
+      loop: [grant, revoke]
+      loop_control:
+        loop_var: rbac_grant_phase
+
+    # Task 2.4: role privileges demo
+    # a role may only hold privileges on its own database
+    - name: Add collection privileges to the role
+      tags: [never, privileges]
+      community.mongodb.mongodb_role:
+        database: "{{ rbac_change_role_db }}"
+        name: "{{ rbac_change_role }}"
+        privileges: "{{ rbac_change_role_privileges }}"
+        state: present
+
+    - name: Show role privileges after the change
+      tags: [never, privileges]
+      community.mongodb.mongodb_shell:
+        db: "{{ rbac_change_role_db }}"
+        eval: 'db.getRole("{{ rbac_change_role }}", {showPrivileges: true}).privileges'
+        transform: raw
+      changed_when: false
+      register: rbac_privs_after_add
+
+    - name: Print privileges after the change
+      tags: [never, privileges]
+      ansible.builtin.debug:
+        msg: "after adding: {{ rbac_privs_after_add.transformed_output }}"
+
+    - name: Restore the original role privileges
+      tags: [never, privileges]
+      community.mongodb.mongodb_role:
+        database: "{{ rbac_change_role_db }}"
+        name: "{{ rbac_change_role }}"
+        privileges: "{{ (rbac_roles | selectattr('name', 'equalto', rbac_change_role) | map(attribute='privileges') | first) }}"
+        state: present
+
+    - name: Show role privileges after the revert
+      tags: [never, privileges]
+      community.mongodb.mongodb_shell:
+        db: "{{ rbac_change_role_db }}"
+        eval: 'db.getRole("{{ rbac_change_role }}", {showPrivileges: true}).privileges'
+        transform: raw
+      changed_when: false
+      register: rbac_privs_after_revert
+
+    - name: Print privileges after the revert
+      tags: [never, privileges]
+      ansible.builtin.debug:
+        msg: "after revert: {{ rbac_privs_after_revert.transformed_output }}"
+
+    # Task 2.5: collection-only access
+    # db.auth runs once per database, so the limited user logs in on the target db directly
+    - name: Read the allowed collection as the limited user
+      tags: [never, collection]
+      community.mongodb.mongodb_shell:
+        login_host: 127.0.0.1
+        login_port: "{{ mongodb_port }}"
+        login_user: "{{ rbac_coll_user }}"
+        login_password: "{{ rbac_users[rbac_coll_user].password }}"
+        login_database: "{{ rbac_coll_db }}"
+        db: "{{ rbac_coll_db }}"
+        eval: 'db.{{ rbac_coll_allowed }}.find().limit(1).toArray().length'
+        transform: raw
+      changed_when: false
+      register: rbac_coll_allowed_read
+
+    - name: Report the allowed read
+      tags: [never, collection]
+      ansible.builtin.debug:
+        msg: "allowed collection {{ rbac_coll_db }}.{{ rbac_coll_allowed }}: read ok, fetched {{ rbac_coll_allowed_read.transformed_output }} doc(s)"
+
+    - name: Read the denied collection as the limited user
+      tags: [never, collection]
+      community.mongodb.mongodb_shell:
+        login_host: 127.0.0.1
+        login_port: "{{ mongodb_port }}"
+        login_user: "{{ rbac_coll_user }}"
+        login_password: "{{ rbac_users[rbac_coll_user].password }}"
+        login_database: "{{ rbac_coll_db }}"
+        db: "{{ rbac_coll_db }}"
+        eval: 'db.{{ rbac_coll_denied }}.find().limit(1).toArray().length'
+        transform: raw
+      changed_when: false
+      ignore_errors: true
+      register: rbac_coll_denied_read
+
+    # an ALLOWED verdict would mean the restriction is not enforced
+    - name: Assert the denied read was refused
+      tags: [never, collection]
+      ansible.builtin.assert:
+        that:
+          - rbac_coll_denied_read is failed
+          - "'not authorized' in rbac_coll_denied_read.msg"
+        fail_msg: "the denied collection read was not refused by the server"
+
+    - name: Report the refused read
+      tags: [never, collection]
+      vars:
+        rbac_denied_reason: "{{ rbac_coll_denied_read.msg | regex_replace('^.*?MongoServerError: ', 'MongoServerError: ') | truncate(120) }}"
+      ansible.builtin.debug:
+        msg: "denied collection {{ rbac_coll_db }}.{{ rbac_coll_denied }}: {{ rbac_denied_reason }}"
+
+    # Task 2.6: drop role and user
+    - name: Drop the demo user
+      tags: [never, drop]
+      community.mongodb.mongodb_user:
+        database: "{{ rbac_grant_db }}"
+        name: "{{ rbac_drop_user }}"
+        state: absent
+      register: rbac_user_dropped
+
+    - name: Drop the demo role
+      tags: [never, drop]
+      community.mongodb.mongodb_role:
+        database: "{{ rbac_grant_db }}"
+        name: "{{ rbac_drop_role }}"
+        state: absent
+      register: rbac_role_dropped
+
+    - name: Show drop result
+      tags: [never, drop]
+      ansible.builtin.debug:
+        msg:
+          - "user {{ rbac_drop_user }}: {{ 'dropped' if rbac_user_dropped is changed else 'already absent' }}"
+          - "role {{ rbac_drop_role }}: {{ 'dropped' if rbac_role_dropped is changed else 'already absent' }}"

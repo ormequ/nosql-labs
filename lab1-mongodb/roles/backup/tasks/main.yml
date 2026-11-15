@@ -1,0 +1,179 @@
+- name: Create backup directory
+  tags: [backup]
+  ansible.builtin.file:
+    path: "{{ backup_dir }}/{{ item }}"
+    state: directory
+    mode: "0750"
+  loop: "{{ backup_dbs + ['all'] }}"
+  loop_control:
+    label: "{{ item }}"
+
+# Task 3.1: per-database backups
+# timestamped archives never overwrite, --config keeps the password off the command line
+- name: Dump each database to a timestamped gzip archive
+  tags: [never, backup]
+  ansible.builtin.command: >-
+    mongodump --host 127.0.0.1:{{ mongodb_port }} -u {{ backup_user }}
+    --authenticationDatabase {{ backup_auth_db }} --config {{ mongodb_tools_conf }}
+    --db {{ item }} --gzip
+    --archive={{ backup_dir }}/{{ item }}/{{ backup_arch_prefix }}-{{ now(fmt=backup_stamp_fmt, utc=true) }}.archive
+  loop: "{{ backup_dbs }}"
+  # every run produces a new timestamped archive
+  changed_when: true
+
+- name: Show created archives
+  tags: [never, backup]
+  ansible.builtin.command: ls -lh {{ backup_dir }}/{{ item }}/
+  loop: "{{ backup_dbs }}"
+  changed_when: false
+  register: backup_list_result
+
+- name: List archives
+  tags: [never, backup]
+  ansible.builtin.debug:
+    msg: "{{ item.stdout_lines }}"
+  loop: "{{ backup_list_result.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+# Task 3.2: all-databases backup
+- name: Dump all databases into one timestamped archive
+  tags: [never, backup]
+  ansible.builtin.command: >-
+    mongodump --host 127.0.0.1:{{ mongodb_port }} -u {{ backup_user }}
+    --authenticationDatabase {{ backup_auth_db }} --config {{ mongodb_tools_conf }}
+    --gzip
+    --archive={{ backup_dir }}/all/{{ backup_arch_prefix }}-{{ now(fmt=backup_stamp_fmt, utc=true) }}.archive
+  register: backup_all_dump_result
+  changed_when: backup_all_dump_result.rc == 0
+
+- name: Show all-databases archive
+  tags: [never, backup]
+  ansible.builtin.command: ls -lh {{ backup_dir }}/all/
+  changed_when: false
+  register: backup_all_list_result
+
+- name: List all-databases archives
+  tags: [never, backup]
+  ansible.builtin.debug:
+    msg: "{{ backup_all_list_result.stdout_lines }}"
+
+# Task 3.4: restore after drop
+- name: Count documents in the collection before the drop
+  community.mongodb.mongodb_shell:
+    login_host: 127.0.0.1
+    login_port: "{{ mongodb_port }}"
+    login_user: "{{ mongodb_admin_user }}"
+    login_password: "{{ mongodb_admin_password }}"
+    db: "{{ backup_restore_test_db }}"
+    eval: 'db.{{ backup_restore_test_coll }}.countDocuments({})'
+    transform: raw
+  no_log: true
+  register: backup_restore_before
+  changed_when: false
+  tags: [never, restore]
+
+- name: Show before-drop count
+  ansible.builtin.debug:
+    msg: "before drop: {{ backup_restore_test_db }}.{{ backup_restore_test_coll }} has {{ backup_restore_before.transformed_output }} documents"
+  tags: [never, restore]
+
+# dump and restore share one stamp, and the dump predates the drop
+- name: Record the restore-point archive stamp
+  ansible.builtin.set_fact:
+    backup_restore_stamp: "{{ now(fmt=backup_stamp_fmt, utc=true) }}"
+  tags: [never, restore]
+
+- name: Make a fresh backup of the database
+  ansible.builtin.command: >-
+    mongodump --host 127.0.0.1:{{ mongodb_port }} -u {{ backup_user }}
+    --authenticationDatabase {{ backup_auth_db }} --config {{ mongodb_tools_conf }}
+    --db {{ backup_restore_test_db }} --gzip
+    --archive={{ backup_dir }}/{{ backup_restore_test_db }}/{{ backup_arch_prefix }}-{{ backup_restore_stamp }}.archive
+  register: backup_restore_dump
+  # every run produces a new timestamped archive
+  changed_when: true
+  tags: [never, restore]
+
+- name: Drop the test collection
+  community.mongodb.mongodb_shell:
+    login_host: 127.0.0.1
+    login_port: "{{ mongodb_port }}"
+    login_user: "{{ mongodb_admin_user }}"
+    login_password: "{{ mongodb_admin_password }}"
+    db: "{{ backup_restore_test_db }}"
+    eval: 'db.{{ backup_restore_test_coll }}.drop()'
+    transform: raw
+  no_log: true
+  tags: [never, restore]
+
+- name: Count documents after the drop
+  community.mongodb.mongodb_shell:
+    login_host: 127.0.0.1
+    login_port: "{{ mongodb_port }}"
+    login_user: "{{ mongodb_admin_user }}"
+    login_password: "{{ mongodb_admin_password }}"
+    db: "{{ backup_restore_test_db }}"
+    eval: >-
+      db.getCollectionNames().includes("{{ backup_restore_test_coll }}")
+      ? db.{{ backup_restore_test_coll }}.countDocuments({})
+      : "0 ({{ backup_restore_test_coll }} is gone)"
+    transform: raw
+  no_log: true
+  register: backup_restore_after_drop
+  changed_when: false
+  tags: [never, restore]
+
+- name: Show after-drop state
+  ansible.builtin.debug:
+    msg: "after drop: {{ backup_restore_after_drop.transformed_output }}"
+  tags: [never, restore]
+
+- name: Restore only the dropped collection
+  ansible.builtin.command: >-
+    mongorestore --host 127.0.0.1:{{ mongodb_port }} -u {{ backup_user }}
+    --authenticationDatabase {{ backup_auth_db }} --config {{ mongodb_tools_conf }}
+    --gzip --archive={{ backup_dir }}/{{ backup_restore_test_db }}/{{ backup_arch_prefix }}-{{ backup_restore_stamp }}.archive
+    --nsInclude '{{ backup_restore_test_db }}.{{ backup_restore_test_coll }}'
+  register: backup_restore_run
+  changed_when: backup_restore_run.rc == 0
+  tags: [never, restore]
+
+- name: Count documents after the restore
+  community.mongodb.mongodb_shell:
+    login_host: 127.0.0.1
+    login_port: "{{ mongodb_port }}"
+    login_user: "{{ mongodb_admin_user }}"
+    login_password: "{{ mongodb_admin_password }}"
+    db: "{{ backup_restore_test_db }}"
+    eval: 'db.{{ backup_restore_test_coll }}.countDocuments({})'
+    transform: raw
+  no_log: true
+  register: backup_restore_final
+  changed_when: false
+  tags: [never, restore]
+
+- name: Show restored count
+  ansible.builtin.debug:
+    msg: "after restore: {{ backup_restore_test_db }}.{{ backup_restore_test_coll }} has {{ backup_restore_final.transformed_output }} documents"
+  tags: [never, restore]
+
+# a collection-scoped restore must not touch sibling collections
+- name: Count documents in an untouched collection
+  community.mongodb.mongodb_shell:
+    login_host: 127.0.0.1
+    login_port: "{{ mongodb_port }}"
+    login_user: "{{ mongodb_admin_user }}"
+    login_password: "{{ mongodb_admin_password }}"
+    db: "{{ backup_restore_test_db }}"
+    eval: 'db.books.countDocuments({})'
+    transform: raw
+  no_log: true
+  register: backup_restore_untouched
+  changed_when: false
+  tags: [never, restore]
+
+- name: Show untouched collection count
+  ansible.builtin.debug:
+    msg: "untouched {{ backup_restore_test_db }}.books still has {{ backup_restore_untouched.transformed_output }} documents"
+  tags: [never, restore]

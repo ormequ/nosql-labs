@@ -1,0 +1,2 @@
+# The archive stamp pattern is fixed by the naming convention in the report
+backup_stamp_fmt: "%Y%m%d-%H%M%S"

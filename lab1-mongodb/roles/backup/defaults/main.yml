@@ -1,0 +1,9 @@
+backup_dir: /var/backups/mongodb
+backup_dbs: [library, shop]
+# admin db is where the backup tools authenticate
+backup_auth_db: admin
+backup_user: "{{ mongodb_admin_user }}"
+# Task 3.4: restore after drop
+backup_restore_test_db: library
+backup_restore_test_coll: readers
+backup_arch_prefix: "dump"
