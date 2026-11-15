@@ -1,0 +1,10 @@
+- name: Generate load on the training database
+  hosts: mongo
+  vars_files:
+    # Vault path from LAB1_VAULT, vault.yml by default
+    - "{{ lookup('env', 'LAB1_VAULT') | default('vault.yml', true) }}"
+  vars:
+    # same venv the mongodb role builds, so the generator uses pymongo 4.20.0
+    mongodb_pymongo_venv: /opt/pymongo-venv
+  roles:
+    - load

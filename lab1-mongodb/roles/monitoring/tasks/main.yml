@@ -1,0 +1,191 @@
+- name: Create monitoring download directory
+  tags: [monitoring]
+  ansible.builtin.file:
+    path: "{{ monitoring_tmp }}"
+    state: directory
+    mode: "0755"
+
+# Task 4.1: exporter, reads metrics under its own clusterMonitor user
+- name: Install mongodb_exporter credentials file
+  tags: [monitoring]
+  ansible.builtin.template:
+    src: mongodb_exporter.env.j2
+    dest: /etc/default/mongodb_exporter
+    mode: "0600"
+  no_log: true
+  notify: Restart mongodb_exporter
+
+- name: Download and unpack mongodb_exporter
+  tags: [monitoring]
+  ansible.builtin.unarchive:
+    src: "{{ monitoring_exporter_url }}"
+    dest: "{{ monitoring_tmp }}"
+    remote_src: true
+    creates: "{{ monitoring_tmp }}/mongodb_exporter-{{ monitoring_exporter_version }}.linux-amd64"
+
+- name: Install mongodb_exporter binary
+  tags: [monitoring]
+  ansible.builtin.copy:
+    src: "{{ monitoring_tmp }}/mongodb_exporter-{{ monitoring_exporter_version }}.linux-amd64/mongodb_exporter"
+    dest: /usr/local/bin/mongodb_exporter
+    mode: "0755"
+    remote_src: true
+  notify: Restart mongodb_exporter
+
+- name: Install mongodb_exporter systemd unit
+  tags: [monitoring]
+  ansible.builtin.template:
+    src: mongodb_exporter.service.j2
+    dest: /etc/systemd/system/mongodb_exporter.service
+    mode: "0644"
+  notify: Restart mongodb_exporter
+
+- name: Enable and start mongodb_exporter
+  tags: [monitoring]
+  ansible.builtin.systemd:
+    name: mongodb_exporter
+    enabled: true
+    state: started
+    daemon_reload: true
+
+# Task 4.1: Prometheus, scrapes a loopback-only exporter
+# the tarball creates no user, so the unit needs a dedicated system one
+- name: Create prometheus system user
+  tags: [monitoring]
+  ansible.builtin.user:
+    name: prometheus
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+    groups: ""
+
+- name: Create prometheus data directory
+  tags: [monitoring]
+  ansible.builtin.file:
+    path: "{{ monitoring_prometheus_data }}"
+    state: directory
+    owner: prometheus
+    mode: "0755"
+
+- name: Download and unpack Prometheus
+  tags: [monitoring]
+  ansible.builtin.unarchive:
+    src: "{{ monitoring_prometheus_url }}"
+    dest: "{{ monitoring_tmp }}"
+    remote_src: true
+    creates: "{{ monitoring_tmp }}/prometheus-{{ monitoring_prometheus_version }}.linux-amd64"
+
+- name: Install Prometheus binary
+  tags: [monitoring]
+  ansible.builtin.copy:
+    src: "{{ monitoring_tmp }}/prometheus-{{ monitoring_prometheus_version }}.linux-amd64/prometheus"
+    dest: /usr/local/bin/prometheus
+    mode: "0755"
+    remote_src: true
+  notify: Restart prometheus
+
+- name: Create prometheus config directory
+  tags: [monitoring]
+  ansible.builtin.file:
+    path: "{{ monitoring_prometheus_conf }}"
+    state: directory
+    mode: "0755"
+
+- name: Install prometheus.yml
+  tags: [monitoring]
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: /etc/prometheus/prometheus.yml
+    mode: "0644"
+  notify: Restart prometheus
+
+- name: Install Prometheus systemd unit
+  tags: [monitoring]
+  ansible.builtin.template:
+    src: prometheus.service.j2
+    dest: /etc/systemd/system/prometheus.service
+    mode: "0644"
+  notify: Restart prometheus
+
+- name: Enable and start Prometheus
+  tags: [monitoring]
+  ansible.builtin.systemd:
+    name: prometheus
+    enabled: true
+    state: started
+    daemon_reload: true
+
+# Task 4.3: Grafana and dashboard
+- name: Download Grafana deb
+  tags: [monitoring]
+  ansible.builtin.get_url:
+    url: "{{ monitoring_grafana_url }}"
+    dest: "{{ monitoring_tmp }}/grafana.deb"
+    mode: "0644"
+
+# fresh Ubuntu holds the dpkg lock with unattended-upgrades, hence the retries
+- name: Install Grafana deb
+  tags: [monitoring]
+  ansible.builtin.apt:
+    deb: "{{ monitoring_tmp }}/grafana.deb"
+    state: present
+  register: monitoring_grafana_install
+  until: not monitoring_grafana_install.failed
+  retries: 24
+  delay: 5
+  notify: Restart grafana-server
+
+- name: Install Grafana datasource provisioning
+  tags: [monitoring]
+  ansible.builtin.template:
+    src: datasource.yml.j2
+    dest: /etc/grafana/provisioning/datasources/prometheus.yml
+    mode: "0644"
+  notify: Restart grafana-server
+
+- name: Install dashboard provider config
+  tags: [monitoring]
+  ansible.builtin.copy:
+    src: dashboard-provider.yml
+    dest: /etc/grafana/provisioning/dashboards/provider.yml
+    mode: "0644"
+  notify: Restart grafana-server
+
+- name: Create dashboards directory
+  tags: [monitoring]
+  ansible.builtin.file:
+    path: /var/lib/grafana/dashboards
+    state: directory
+    mode: "0755"
+
+- name: Install MongoDB dashboard JSON
+  tags: [monitoring]
+  ansible.builtin.copy:
+    src: mongodb-dashboard.json
+    dest: /var/lib/grafana/dashboards/mongodb-dashboard.json
+    mode: "0644"
+  notify: Restart grafana-server
+
+# the package reads only CONF_FILE, so anonymous access goes through a drop-in
+- name: Create grafana systemd drop-in directory
+  tags: [monitoring]
+  ansible.builtin.file:
+    path: /etc/systemd/system/grafana-server.service.d
+    state: directory
+    mode: "0755"
+
+- name: Enable anonymous Viewer access for the dashboard
+  tags: [monitoring]
+  ansible.builtin.copy:
+    src: grafana-anonymous.conf
+    dest: /etc/systemd/system/grafana-server.service.d/anonymous.conf
+    mode: "0644"
+  notify: Restart grafana-server
+
+- name: Enable and start Grafana
+  tags: [monitoring]
+  ansible.builtin.systemd:
+    name: grafana-server
+    enabled: true
+    state: started
+    daemon_reload: true

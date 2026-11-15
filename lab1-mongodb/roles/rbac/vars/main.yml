@@ -1,0 +1,40 @@
+# Every rbac script authenticates against the admin db
+rbac_admin_db: admin
+
+# Task 4.1: exporter user, the vault holds its credentials, the role is read-only
+rbac_exporter_role: clusterMonitor
+rbac_exporter_db: admin
+
+# Task 2.1: custom roles and users, fixed by the lab task, not overridable
+rbac_roles:
+  - name: libraryReader
+    db: library
+    privileges:
+      - resource: { db: library, collection: "" }
+        actions: [find]
+    users: [anna]
+  - name: libraryWriter
+    db: library
+    privileges:
+      - resource: { db: library, collection: "" }
+        actions: [find, insert, update, remove]
+    users: [boris]
+  - name: booksOnly
+    db: library
+    privileges:
+      - resource: { db: library, collection: books }
+        actions: [find, insert, update, remove]
+    users: [vera]
+  - name: shopReader
+    db: shop
+    privileges:
+      - resource: { db: shop, collection: "" }
+        actions: [find]
+    users: []
+
+# Task 2.4: libraryWriter plus createIndex/dropIndex on books, the demo's changed set
+rbac_change_role_privileges:
+  - resource: { db: library, collection: "" }
+    actions: [find, insert, update, remove]
+  - resource: { db: library, collection: books }
+    actions: [createIndex, dropIndex, find, insert, update, remove]

@@ -1,0 +1,12 @@
+# Copy to vault.yml, fill the real secrets and encrypt it
+mongodb_admin_user: admin
+mongodb_admin_password: CHANGE_ME
+# The exporter user and its password (built-in clusterMonitor role)
+exporter_user: exporter
+exporter_password: CHANGE_ME
+# Passwords of the rbac demo users. Keys must match roles/rbac/defaults/main.yml
+rbac_user_passwords:
+  anna: CHANGE_ME
+  boris: CHANGE_ME
+  vera: CHANGE_ME
+  grigory: CHANGE_ME

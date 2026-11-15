@@ -1,0 +1,28 @@
+// Seeds {{ item.key }}: skips collections with data, auth lives in this 0600 file
+db.getSiblingDB("admin").auth("{{ mongodb_admin_user }}", "{{ mongodb_admin_password }}");
+const target = db.getSiblingDB("{{ item.key }}");
+
+const collections = {
+{% for coll in item.value | dict2items %}
+  "{{ coll.key }}": {{ coll.value }},
+{% endfor %}
+};
+
+for (const [coll, count] of Object.entries(collections)) {
+  if (target[coll].countDocuments({}) > 0) {
+    print("{{ item.key }}: " + coll + " already seeded (" + target[coll].countDocuments({}) + " docs)");
+    continue;
+  }
+  const docs = [];
+  for (let i = 0; i < count; i++) {
+    docs.push({
+      name: coll + "-" + (i + 1),
+      idx: i + 1,
+      value: Math.floor(Math.random() * 1000),
+      tags: ["seed", coll],
+      created: new Date(),
+    });
+  }
+  target[coll].insertMany(docs);
+  print("{{ item.key }}: inserted " + count + " into " + coll);
+}

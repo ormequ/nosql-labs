@@ -1,0 +1,15 @@
+[Unit]
+Description=Percona mongodb_exporter for MongoDB metrics
+After=network.target mongod.service
+
+[Service]
+Type=simple
+# Credentials stay in the root-only environment file, not in this 0644 unit
+EnvironmentFile=/etc/default/mongodb_exporter
+ExecStart=/usr/local/bin/mongodb_exporter \
+  --collector.diagnosticdata \
+  --web.listen-address={{ monitoring_listen_ip }}:{{ monitoring_exporter_port }}
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

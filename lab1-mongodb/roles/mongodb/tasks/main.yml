@@ -1,0 +1,125 @@
+# backup tasks reuse this 0600 credentials file instead of a command-line password
+- name: Install mongodump/mongorestore credentials file
+  tags: [install, backup]
+  ansible.builtin.template:
+    src: tools-credentials.conf.j2
+    dest: "{{ mongodb_tools_conf }}"
+    mode: "0600"
+
+# Task 1.1: repository setup
+- name: Download MongoDB repository signing key
+  tags: [install, repo]
+  ansible.builtin.get_url:
+    url: "{{ mongodb_repo_key }}"
+    dest: "{{ mongodb_keyring }}.asc"
+    mode: "0644"
+
+- name: Dearmor MongoDB repository key
+  tags: [install, repo]
+  ansible.builtin.command:
+    cmd: gpg --dearmor --yes --output {{ mongodb_keyring }} {{ mongodb_keyring }}.asc
+  changed_when: false
+
+- name: Add MongoDB apt repository (deb822)
+  tags: [install, repo]
+  ansible.builtin.deb822_repository:
+    name: mongodb-org-8.0
+    types: [deb]
+    uris: https://repo.mongodb.org/apt/ubuntu
+    suites: noble/mongodb-org/8.0
+    components: [multiverse]
+    signed_by: "{{ mongodb_keyring }}"
+    state: present
+
+- name: Install MongoDB packages
+  tags: [install]
+  ansible.builtin.apt:
+    name: "{{ mongodb_pkgs }}"
+    state: present
+    update_cache: true
+
+# pymongo 4+ venv as module interpreter, always: partial runs need it too
+# a fresh VM ships a stale apt index, so the first apt call must refresh it
+- name: Install python3-venv
+  tags: [always, install, pymongo]
+  ansible.builtin.apt:
+    name: python3-venv
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create pymongo venv
+  tags: [always, install, pymongo]
+  ansible.builtin.command:
+    cmd: python3 -m venv {{ mongodb_pymongo_venv }}
+    creates: "{{ mongodb_pymongo_venv }}/bin/python"
+
+- name: Install pymongo into the venv
+  tags: [always, install, pymongo]
+  ansible.builtin.command:
+    cmd: "{{ mongodb_pymongo_venv }}/bin/pip install pymongo=={{ mongodb_pymongo_version }}"
+  register: mongodb_pip_pymongo
+  changed_when: "'already satisfied' not in mongodb_pip_pymongo.stdout"
+
+# Task 1.1: mongod config
+# bindIp stays on loopback, the network never reaches mongod
+- name: Install mongod.conf from template
+  tags: [install]
+  ansible.builtin.template:
+    src: mongod.conf.j2
+    dest: /etc/mongod.conf
+    mode: "0644"
+  notify: Restart mongod
+
+# Task 1.2: autostart
+- name: Enable mongod for autostart
+  tags: [install, autostart]
+  ansible.builtin.systemd:
+    name: mongod
+    enabled: true
+
+- name: Ensure mongod is running
+  tags: [install, start]
+  ansible.builtin.systemd:
+    name: mongod
+    state: started
+
+# Task 1.3: service operations
+# these mutations run only when explicitly requested by tag
+- name: Stop mongod
+  tags: [never, stop]
+  ansible.builtin.systemd:
+    name: mongod
+    state: stopped
+
+- name: Restart mongod
+  tags: [never, restart]
+  ansible.builtin.systemd:
+    name: mongod
+    state: restarted
+
+- name: Check mongod status
+  tags: [status]
+  ansible.builtin.service_facts:
+
+- name: Show mongod status
+  tags: [status]
+  ansible.builtin.debug:
+    msg: "mongod is {{ ansible_facts.services['mongod.service'].state }}"
+
+# Task 1.4: health check
+# a stopped server must fail the check, not leave it green
+- name: Ping MongoDB through mongosh
+  tags: [health]
+  ansible.builtin.command:
+    cmd: >-
+      mongosh --quiet --host 127.0.0.1:{{ mongodb_port }}
+      --eval 'db.getSiblingDB("admin").runCommand({ping: 1}).ok'
+  register: mongodb_health
+  changed_when: false
+
+- name: Show MongoDB health verdict
+  tags: [health]
+  ansible.builtin.debug:
+    msg: "MongoDB: available (ping ok=1)"
+  when: mongodb_health.rc == 0 and mongodb_health.stdout | trim == '1'

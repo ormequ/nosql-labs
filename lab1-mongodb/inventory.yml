@@ -1,0 +1,4 @@
+all:
+  hosts:
+    mongo:
+      ansible_host: "{{ lookup('env', 'LAB1_MONGO_HOST') }}"

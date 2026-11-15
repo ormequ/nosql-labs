@@ -1,0 +1,8 @@
+# The load generator runs from the VM itself, so the host and port stay local
+load_dir: /opt/load
+load_db: shop
+load_coll: load_docs
+load_workers: 4
+load_seconds: 180
+load_host: "127.0.0.1"
+load_mongodb_port: 27017

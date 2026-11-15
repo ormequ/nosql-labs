@@ -1,0 +1,7 @@
+seed_databases:
+  library:
+    books: 300
+    readers: 150
+  shop:
+    products: 400
+    orders: 250

@@ -1,0 +1,7 @@
+# The web UIs listen on loopback only and are reached through an SSH tunnel
+monitoring_listen_ip: "127.0.0.1"
+monitoring_exporter_port: 9216
+monitoring_prometheus_port: 9090
+
+# Stable path, so a reboot does not wipe downloads and break idempotency
+monitoring_tmp: /opt/monitor-dl
