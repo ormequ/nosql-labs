@@ -1,0 +1,61 @@
+- name: Read existing ISM policy
+  tags: [ism, policy]
+  ansible.builtin.uri:
+    url: "https://{{ os_ism_node }}/_plugins/_ism/policies/{{ os_ism_policy_name }}"
+    method: GET
+    url_username: "{{ os_ism_admin_user }}"
+    url_password: "{{ os_ism_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ os_ca_file }}"
+    status_code: [200, 404]
+  register: os_ism_policy_get
+  changed_when: false
+
+# PUT without if_seq_no 409s on an existing policy
+- name: Compose optimistic-lock query for existing policy
+  tags: [ism, policy]
+  ansible.builtin.set_fact:
+    os_ism_policy_query: "?if_seq_no={{ os_ism_policy_get.json._seq_no }}&if_primary_term={{ os_ism_policy_get.json._primary_term }}"
+  when: os_ism_policy_get.status == 200
+
+- name: Load ISM policy
+  tags: [ism, policy]
+  ansible.builtin.uri:
+    url: "https://{{ os_ism_node }}/_plugins/_ism/policies/{{ os_ism_policy_name }}{{ os_ism_policy_query | default('') }}"
+    method: PUT
+    body_format: json
+    body: "{{ lookup('file', 'ism_policy.json') | from_json }}"
+    url_username: "{{ os_ism_admin_user }}"
+    url_password: "{{ os_ism_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ os_ca_file }}"
+    status_code: [200, 201]
+  changed_when: os_ism_policy_get.status == 404
+
+- name: Load index template
+  tags: [ism, template]
+  ansible.builtin.uri:
+    url: "https://{{ os_ism_node }}/_index_template/{{ os_ism_template_name }}"
+    method: PUT
+    body_format: json
+    body: "{{ lookup('file', 'index_template.json') | from_json }}"
+    url_username: "{{ os_ism_admin_user }}"
+    url_password: "{{ os_ism_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ os_ca_file }}"
+    status_code: [200, 201]
+
+- name: Set ISM job interval to 1 minute
+  tags: [ism, policy]
+  ansible.builtin.uri:
+    url: "https://{{ os_ism_node }}/_cluster/settings"
+    method: PUT
+    body_format: json
+    body:
+      persistent:
+        plugins.index_state_management.job_interval: 1
+    url_username: "{{ os_ism_admin_user }}"
+    url_password: "{{ os_ism_admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ os_ca_file }}"
+    status_code: [200, 201]

@@ -1,0 +1,3 @@
+# pre-fetched PKI files are staged here before copying out to nodes
+os_security_staging_dir: "{{ playbook_dir }}/.pki-staging"
+os_security_pki_dir: "/opt/lab2-pki"

@@ -1,0 +1,24 @@
+# Lab 2: order matters - certs precede the first start, the ISM template precedes Fluent Bit
+- name: Prepare all lab VMs
+  import_playbook: 10-prepare.yml
+
+- name: Install OpenSearch binaries
+  import_playbook: 20-opensearch-install.yml
+
+- name: TLS certificates and security configuration
+  import_playbook: 30-security.yml
+
+- name: First start and health check
+  import_playbook: 40-start.yml
+
+- name: Push security configuration
+  import_playbook: 50-security-apply.yml
+
+- name: Index template and ISM policy
+  import_playbook: 60-ism.yml
+
+- name: Dashboards, nginx page, Fluent Bit
+  import_playbook: 70-apps.yml
+
+- name: Prometheus and Grafana
+  import_playbook: 80-monitoring.yml

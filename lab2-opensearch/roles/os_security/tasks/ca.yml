@@ -1,0 +1,76 @@
+- name: Create PKI directory
+  tags: [tls, ca]
+  ansible.builtin.file:
+    path: "{{ os_security_pki_dir }}"
+    state: directory
+    mode: "0700"
+
+- name: Generate root CA key
+  tags: [tls, ca]
+  community.crypto.openssl_privatekey:
+    path: "{{ os_security_pki_dir }}/root-ca-key.pem"
+    type: RSA
+    size: 2048
+    mode: "0600"
+
+- name: Generate root CA CSR
+  tags: [tls, ca]
+  community.crypto.openssl_csr:
+    path: "{{ os_security_pki_dir }}/root-ca.csr"
+    privatekey_path: "{{ os_security_pki_dir }}/root-ca-key.pem"
+    # RFC2253 renders RDNs back to front, so subject_ordered keeps CN first
+    subject_ordered:
+      - { commonName: lab2-root-ca }
+      - { organizationName: lab2 }
+    basic_constraints:
+      - "CA:TRUE"
+      - "pathlen:0"
+    basic_constraints_critical: true
+    key_usage:
+      - keyCertSign
+      - cRLSign
+    key_usage_critical: true
+    use_common_name_for_san: false
+
+- name: Sign root CA certificate
+  tags: [tls, ca]
+  community.crypto.x509_certificate:
+    path: "{{ os_security_pki_dir }}/root-ca.pem"
+    csr_path: "{{ os_security_pki_dir }}/root-ca.csr"
+    privatekey_path: "{{ os_security_pki_dir }}/root-ca-key.pem"
+    provider: selfsigned
+    selfsigned_not_after: "+730d"
+
+- name: Generate admin and node keys
+  tags: [tls, certs]
+  community.crypto.openssl_privatekey:
+    path: "{{ os_security_pki_dir }}/{{ item }}-key.pem"
+    type: RSA
+    size: 2048
+    format: pkcs8
+    mode: "0600"
+  loop: "{{ ['admin'] + groups['lab2'] }}"
+
+# admin is a client cert, so it gets no SAN
+- name: Generate admin and node CSRs
+  tags: [tls, certs]
+  community.crypto.openssl_csr:
+    path: "{{ os_security_pki_dir }}/{{ item }}.csr"
+    privatekey_path: "{{ os_security_pki_dir }}/{{ item }}-key.pem"
+    subject_ordered:
+      - { commonName: "{{ item }}" }
+      - { organizationName: lab2 }
+    subject_alt_name: "{{ os_security_san_map[item] | default(omit) }}"
+    use_common_name_for_san: false
+  loop: "{{ ['admin'] + groups['lab2'] }}"
+
+- name: Sign admin and node certificates
+  tags: [tls, certs]
+  community.crypto.x509_certificate:
+    path: "{{ os_security_pki_dir }}/{{ item }}.pem"
+    csr_path: "{{ os_security_pki_dir }}/{{ item }}.csr"
+    provider: ownca
+    ownca_path: "{{ os_security_pki_dir }}/root-ca.pem"
+    ownca_privatekey_path: "{{ os_security_pki_dir }}/root-ca-key.pem"
+    ownca_not_after: "+730d"
+  loop: "{{ ['admin'] + groups['lab2'] }}"

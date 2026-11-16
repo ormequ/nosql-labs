@@ -1,0 +1,30 @@
+[SERVICE]
+    Flush        1
+    Daemon       Off
+    Log_Level    info
+    Parsers_File parsers.conf
+
+[INPUT]
+    Name         tail
+    Path         /var/log/nginx/lab2.access.log
+    Tag          nginx
+    Parser       nginx_json
+    DB           /var/lib/fluent-bit/tail-lab2.db
+    Mem_Buf_Limit 5MB
+    Skip_Long_Lines On
+
+# create op writes to the data stream, TLS verified by the lab CA
+[OUTPUT]
+    Name         opensearch
+    Match        nginx
+    Host         127.0.0.1
+    Port         {{ os_port_rest }}
+    tls          On
+    tls.verify   On
+    tls.ca_file  {{ os_ca_file }}
+    Index        logs-nginx
+    Suppress_Type_Name On
+    Write_Operation create
+    HTTP_User    {{ nginx_fluentbit_writer_user }}
+    HTTP_Passwd  {{ nginx_fluentbit_writer_password }}
+    Retry_Limit  3

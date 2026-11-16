@@ -1,0 +1,30 @@
+- name: Start opensearch
+  ansible.builtin.systemd:
+    name: opensearch
+    state: started
+
+- name: Wait for the REST port on each node
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ os_port_rest }}"
+    timeout: 300
+
+- name: Wait for green or yellow cluster health
+  ansible.builtin.uri:
+    url: "https://127.0.0.1:{{ os_port_rest }}/_cluster/health?wait_for_status=yellow&timeout=120s"
+    url_username: admin
+    url_password: "{{ admin_password }}"
+    force_basic_auth: true
+    ca_path: "{{ os_ca_file }}"
+    return_content: true
+  register: os_install_cluster_health
+  until: os_install_cluster_health.status == 200
+  retries: 30
+  delay: 10
+
+- name: Show cluster health
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }}: cluster health
+      {{ os_install_cluster_health.json.status }},
+      nodes {{ os_install_cluster_health.json.number_of_nodes }}

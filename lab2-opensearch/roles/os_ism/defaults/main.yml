@@ -1,0 +1,5 @@
+os_ism_node: "127.0.0.1:{{ os_port_rest }}"
+os_ism_admin_user: admin
+os_ism_policy_name: logs-nginx-policy
+os_ism_template_name: logs-nginx
+# os_ism_admin_password comes from the calling playbook's vault

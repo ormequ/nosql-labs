@@ -15,4 +15,5 @@ jobs:
           python-version: "3.12"
       - run: pip install ansible-lint
       - run: ansible-galaxy collection install -r lab1-mongodb/requirements.yml
+      - run: ansible-galaxy collection install -r lab2-opensearch/requirements.yml
       - run: ansible-lint

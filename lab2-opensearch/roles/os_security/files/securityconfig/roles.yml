@@ -1,0 +1,51 @@
+_meta:
+  type: "roles"
+  config_version: 2
+
+# Task 2.1: write, read and monitor roles
+log_writer:
+  reserved: false
+  cluster_permissions:
+    - "cluster:monitor/main"
+    # bulk is checked at cluster level, see cluster_composite_ops
+    - "indices:data/write/bulk"
+  index_permissions:
+    - index_patterns:
+        # covers the data stream and its .ds- backing indices
+        - "*logs-nginx*"
+      allowed_actions:
+        - "indices:admin/data_stream/write*"
+        - "indices:data/write/bulk*"
+        - "indices:data/write/index*"
+        - "indices:data/write/create*"
+        # the first write into a fresh backing index adds its mapping
+        - "indices:admin/mapping/put"
+    # the writer bootstraps the stream itself, with create only: no delete or close
+    - index_patterns:
+        - "logs-nginx"
+      allowed_actions:
+        - "indices:admin/create"
+        - "indices:admin/data_stream/create"
+
+log_reader:
+  reserved: false
+  index_permissions:
+    - index_patterns:
+        - "logs*"
+      allowed_actions:
+        - "read"
+
+# exactly what the prometheus-exporter plugin runs for /_prometheus/metrics
+log_monitor:
+  reserved: false
+  cluster_permissions:
+    - "cluster:monitor/prometheus/metrics"
+    - "cluster:monitor/health"
+    - "cluster:monitor/nodes/info"
+    - "cluster:monitor/nodes/stats"
+    - "cluster:monitor/state"
+  index_permissions:
+    - index_patterns:
+        - "*"
+      allowed_actions:
+        - "indices:monitor/stats"

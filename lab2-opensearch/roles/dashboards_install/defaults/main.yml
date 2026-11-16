@@ -1,0 +1,3 @@
+# pinned to the OpenSearch version: 3.8 Dashboards only works with a 3.8 cluster
+dashboards_install_version: "3.8.0"
+dashboards_install_node_mem_mb: 512

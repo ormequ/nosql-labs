@@ -1,0 +1,93 @@
+- name: Create the opensearch system group
+  tags: [install, user]
+  ansible.builtin.group:
+    name: "{{ os_user }}"
+    state: present
+    system: true
+
+- name: Create the opensearch service account
+  tags: [install, user]
+  ansible.builtin.user:
+    name: "{{ os_user }}"
+    group: "{{ os_user }}"
+    system: true
+    create_home: false
+    shell: /usr/sbin/nologin
+
+# bootstrap check: a node on a non-loopback address refuses to start below 262144
+- name: Raise vm.max_map_count
+  tags: [install, sysctl]
+  ansible.posix.sysctl:
+    name: vm.max_map_count
+    value: "262144"
+    state: present
+
+- name: Download OpenSearch tarball
+  tags: [install, download]
+  ansible.builtin.get_url:
+    url: "{{ os_install_tarball_url }}"
+    dest: "{{ os_install_tarball_path }}"
+    mode: "0644"
+
+- name: Extract OpenSearch
+  tags: [install]
+  ansible.builtin.unarchive:
+    src: "{{ os_install_tarball_path }}"
+    dest: /opt
+    owner: "{{ os_user }}"
+    group: "{{ os_user }}"
+    remote_src: true
+    creates: "{{ os_install_extract_dir }}"
+
+- name: Link /opt/opensearch to the extracted version
+  tags: [install]
+  ansible.builtin.file:
+    src: "{{ os_install_extract_dir }}"
+    dest: "{{ os_home }}"
+    state: link
+
+- name: Pin heap size in jvm.options
+  tags: [install]
+  ansible.builtin.lineinfile:
+    path: "{{ os_home }}/config/jvm.options"
+    state: present
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  loop:
+    - { regexp: "^-Xms", line: "-Xms{{ os_install_heap_mb }}m" }
+    - { regexp: "^-Xmx", line: "-Xmx{{ os_install_heap_mb }}m" }
+  loop_control:
+    label: "{{ item.line }}"
+
+- name: Install opensearch.yml
+  tags: [install, configure]
+  ansible.builtin.template:
+    src: opensearch.yml.j2
+    dest: "{{ os_home }}/config/opensearch.yml"
+    owner: "{{ os_user }}"
+    group: "{{ os_user }}"
+    mode: "0640"
+
+- name: Install systemd unit
+  tags: [install, configure]
+  ansible.builtin.template:
+    src: opensearch.service.j2
+    dest: /etc/systemd/system/opensearch.service
+    mode: "0644"
+
+# the service starts later, after certs are in place (40-start.yml)
+- name: Enable opensearch unit
+  tags: [install, configure]
+  ansible.builtin.systemd:
+    name: opensearch
+    enabled: true
+    daemon_reload: true
+
+# the plugin must exist before the first start, a later install needs a node restart
+- name: Install prometheus exporter plugin
+  tags: [install, monitoring]
+  ansible.builtin.command:
+    cmd: "{{ os_home }}/bin/opensearch-plugin install --batch {{ os_install_prometheus_plugin_url }}"
+    creates: "{{ os_home }}/plugins/prometheus-exporter"
+  become: true
+  become_user: "{{ os_user }}"

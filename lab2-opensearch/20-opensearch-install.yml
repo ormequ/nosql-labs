@@ -1,0 +1,5 @@
+# Task 1.1: hot-warm cluster, TLS certs must be in place before the first start
+- name: Install OpenSearch
+  hosts: lab2
+  roles:
+    - role: os_install

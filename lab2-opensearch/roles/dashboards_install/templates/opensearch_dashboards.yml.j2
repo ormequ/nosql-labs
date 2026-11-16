@@ -1,0 +1,14 @@
+server.host: "127.0.0.1"
+server.port: {{ dashboards_install_port }}
+server.name: "lab2-dashboards"
+
+# cluster manager node (this host), not a data node
+opensearch.hosts: ["https://127.0.0.1:{{ os_port_rest }}"]
+opensearch.username: "kibanaserver"
+opensearch.password: "{{ dashboards_install_server_password }}"
+opensearch.ssl.verificationMode: full
+opensearch.ssl.certificateAuthorities: ["{{ os_ca_file }}"]
+
+opensearch.requestHeadersWhitelist: ["Authorization"]
+opensearch_security.enabled: true
+opensearch_security.multitenancy.enabled: false

@@ -1,0 +1,111 @@
+# the password goes on stdin, so no process list sees it
+- name: Compute bcrypt hash for each internal user
+  tags: [security, config]
+  delegate_to: localhost
+  ansible.builtin.command:
+    cmd: "uv run --with bcrypt python3 {{ role_path }}/files/hash_user_password.py {{ item.name | quote }}"
+    stdin: "{{ item.password }}"
+  register: os_security_hash_run
+  changed_when: false
+  loop: "{{ os_security_internal_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  no_log: true
+
+# PKI files live on the certs host: fetch to the controller, then copy out
+- name: Fetch certificates from the certs host
+  tags: [tls, distribute]
+  # one host at a time: parallel fetches of the same file race on the shared staging dir
+  throttle: 1
+  ansible.builtin.fetch:
+    src: "{{ os_security_pki_dir }}/{{ item }}"
+    dest: "{{ os_security_staging_dir }}/"
+    flat: true
+  loop:
+    - root-ca.pem
+    - admin.pem
+    - admin-key.pem
+    - "{{ inventory_hostname }}.pem"
+    - "{{ inventory_hostname }}-key.pem"
+  loop_control:
+    label: "{{ item }}"
+  delegate_to: "{{ groups['os_certs'] | first }}"
+
+- name: Create certificate directory on the node
+  tags: [tls, distribute]
+  ansible.builtin.file:
+    path: "{{ os_cert_dir }}"
+    state: directory
+    owner: "{{ os_user }}"
+    group: "{{ os_user }}"
+    mode: "0750"
+
+- name: Copy node certificates from the staging dir
+  tags: [tls, distribute]
+  ansible.builtin.copy:
+    src: "{{ os_security_staging_dir }}/{{ item.src }}"
+    dest: "{{ os_cert_dir }}/{{ item.dest }}"
+    owner: "{{ os_user }}"
+    group: "{{ os_user }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { src: root-ca.pem, dest: root-ca.pem, mode: "0644" }
+    - { src: "{{ inventory_hostname }}.pem", dest: node.pem, mode: "0644" }
+    - { src: "{{ inventory_hostname }}-key.pem", dest: node-key.pem, mode: "0600" }
+  loop_control:
+    label: "{{ item.dest }}"
+
+- name: Copy admin certificate for the securityadmin host
+  tags: [tls, distribute]
+  when: "'os_certs' in group_names"
+  ansible.builtin.copy:
+    src: "{{ os_security_staging_dir }}/{{ item.src }}"
+    dest: "{{ os_cert_dir }}/{{ item.dest }}"
+    owner: "{{ os_user }}"
+    group: "{{ os_user }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { src: admin.pem, dest: admin.pem, mode: "0644" }
+    - { src: admin-key.pem, dest: admin-key.pem, mode: "0600" }
+  loop_control:
+    label: "{{ item.dest }}"
+
+- name: Copy securityconfig files
+  tags: [security, config]
+  ansible.builtin.copy:
+    src: securityconfig/
+    dest: "{{ os_home }}/config/opensearch-security/"
+    owner: "{{ os_user }}"
+    group: "{{ os_user }}"
+    mode: "0640"
+  register: os_security_config_copy
+
+- name: Copy internal users from template
+  tags: [security, config]
+  ansible.builtin.template:
+    src: internal_users.yml.j2
+    dest: "{{ os_home }}/config/opensearch-security/internal_users.yml"
+    owner: "{{ os_user }}"
+    group: "{{ os_user }}"
+    mode: "0640"
+  register: os_security_users_copy
+
+# any file change means the next securityadmin run rewrites the security index
+- name: Summarize security config changes
+  tags: [security, config]
+  ansible.builtin.set_fact:
+    os_security_config_changed: "{{ os_security_config_copy.changed or os_security_users_copy.changed }}"
+
+- name: Remove demo config leftovers
+  tags: [security, config]
+  ansible.builtin.file:
+    path: "{{ os_home }}/config/opensearch-security/{{ item }}"
+    state: absent
+  loop:
+    - internal_users.yml.demo
+    - roles.yml.demo
+    - roles_mapping.yml.demo
+    - action_groups.yml.demo
+    - config.yml.demo
+    - tenants.yml.demo
+    - opensearch.yml.example

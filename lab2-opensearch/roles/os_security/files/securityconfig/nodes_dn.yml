@@ -1,0 +1,5 @@
+_meta:
+  type: "nodesdn"
+  config_version: 2
+
+# Kept empty: DNs are pinned via opensearch.yml. Securityadmin still expects the file

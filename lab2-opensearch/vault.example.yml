@@ -1,0 +1,6 @@
+# Copy to group_vars/lab2/vault.yml, fill secrets, encrypt, never commit
+admin_password: CHANGE_ME
+kibana_server_password: CHANGE_ME
+writer_password: CHANGE_ME
+reader_password: CHANGE_ME
+monitor_password: CHANGE_ME

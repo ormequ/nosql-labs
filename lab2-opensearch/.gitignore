@@ -1,0 +1,2 @@
+# controller-side staging for fetched TLS material, never committed
+.pki-staging/

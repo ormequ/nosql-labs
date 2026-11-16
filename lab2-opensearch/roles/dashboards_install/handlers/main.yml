@@ -1,0 +1,5 @@
+- name: Restart dashboards
+  ansible.builtin.systemd:
+    name: opensearch-dashboards
+    state: restarted
+    daemon_reload: true

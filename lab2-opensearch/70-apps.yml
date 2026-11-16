@@ -1,0 +1,15 @@
+# Task 1.1b: OpenSearch Dashboards
+- name: Install OpenSearch Dashboards
+  hosts: os-dash
+  roles:
+    - role: dashboards_install
+      vars:
+        dashboards_install_server_password: "{{ kibana_server_password }}"
+
+# Task 3.1-3.2: nginx JSON log and log shipper
+- name: Nginx page and log shipper
+  hosts: os-hot
+  roles:
+    - role: nginx_fluentbit
+      vars:
+        nginx_fluentbit_writer_password: "{{ writer_password }}"

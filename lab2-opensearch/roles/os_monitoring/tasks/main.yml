@@ -1,0 +1,89 @@
+- name: Install prometheus and package helpers
+  tags: [monitoring, install]
+  ansible.builtin.apt:
+    name: [prometheus, adduser, libfontconfig1]
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+# apt.grafana.com answers 403 from this network, the dl CDN serves the same OSS .deb
+- name: Download grafana .deb
+  tags: [grafana, install]
+  ansible.builtin.get_url:
+    url: "{{ os_monitoring_grafana_base_url }}/grafana_{{ os_monitoring_grafana_version }}_amd64.deb"
+    dest: "{{ os_monitoring_grafana_deb }}"
+    mode: "0644"
+
+- name: Install grafana .deb
+  tags: [grafana, install]
+  ansible.builtin.apt:
+    deb: "{{ os_monitoring_grafana_deb }}"
+    state: present
+
+- name: Copy the lab CA for prometheus
+  tags: [prometheus]
+  ansible.builtin.copy:
+    src: "{{ os_ca_file }}"
+    dest: "{{ os_monitoring_ca_file }}"
+    mode: "0644"
+    # the CA already sits on the node, not on the controller
+    remote_src: true
+  notify: Restart prometheus
+
+- name: Install prometheus config
+  tags: [prometheus]
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: /etc/prometheus/prometheus.yml
+    mode: "0644"
+  notify: Restart prometheus
+
+- name: Provision grafana datasource
+  tags: [grafana]
+  ansible.builtin.copy:
+    src: grafana-datasource.yml
+    dest: /etc/grafana/provisioning/datasources/prometheus.yml
+    mode: "0644"
+  notify: Restart grafana
+
+- name: Provision grafana dashboard provider
+  tags: [grafana]
+  ansible.builtin.copy:
+    src: grafana-dashboard-provider.yml
+    dest: /etc/grafana/provisioning/dashboards/lab2.yml
+    mode: "0644"
+  notify: Restart grafana
+
+- name: Create grafana dashboard dir
+  tags: [grafana]
+  ansible.builtin.file:
+    path: /var/lib/grafana/dashboards
+    state: directory
+    owner: grafana
+    group: grafana
+    mode: "0755"
+
+- name: Provision grafana dashboard json
+  tags: [grafana]
+  ansible.builtin.copy:
+    src: grafana-dashboard.json
+    dest: /var/lib/grafana/dashboards/lab2-opensearch.json
+    mode: "0644"
+  notify: Restart grafana
+
+# flush before the first start: the handler then starts each service once
+- name: Apply config changes before the first start
+  tags: [monitoring]
+  ansible.builtin.meta: flush_handlers
+
+- name: Start prometheus and grafana
+  tags: [monitoring]
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop:
+    - prometheus
+    # the .deb ships the unit as grafana-server
+    - grafana-server

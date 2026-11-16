@@ -1,0 +1,99 @@
+{
+  "title": "OpenSearch Lab2",
+  "uid": "lab2-opensearch",
+  "timezone": "browser",
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Cluster status (0=green, 1=yellow, 2=red)",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "max(opensearch_cluster_status)", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 2 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "title": "Node JVM heap used bytes",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 9, "x": 6, "y": 0 },
+      "targets": [
+        { "expr": "opensearch_jvm_mem_heap_used_bytes", "legendFormat": "{{node}}", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": { "noValue": "0", "unit": "bytes" },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "title": "Indexing rate (ops/s)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 9, "x": 15, "y": 0 },
+      "targets": [
+        { "expr": "rate(opensearch_indices_indexing_index_count[1m])", "legendFormat": "{{node}}", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": { "noValue": "0" },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "title": "Search rate (ops/s)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 9, "x": 0, "y": 8 },
+      "targets": [
+        { "expr": "rate(opensearch_indices_search_query_count[1m])", "legendFormat": "{{node}}", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": { "noValue": "0" },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "title": "Shard count",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 9, "x": 9, "y": 8 },
+      "targets": [
+        { "expr": "max by (type) (opensearch_cluster_shards_number)", "legendFormat": "{{type}}", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": { "noValue": "0" },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "title": "Disk free bytes per node",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 8 },
+      "targets": [
+        { "expr": "opensearch_fs_path_free_bytes", "legendFormat": "{{node}}", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": { "noValue": "0", "unit": "bytes" },
+        "overrides": []
+      }
+    }
+  ],
+  "schemaVersion": 39,
+  "version": 1
+}

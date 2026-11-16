@@ -1,0 +1,6 @@
+# cluster layout shared by every role: roles cannot read another role's vars
+os_user: opensearch
+os_home: /opt/opensearch
+os_port_rest: 9200
+os_cert_dir: "{{ os_home }}/config/certs"
+os_ca_file: "{{ os_cert_dir }}/root-ca.pem"
