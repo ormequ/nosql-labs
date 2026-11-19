@@ -1,0 +1,7 @@
+# Task 3.3-3.4: index template and ISM policy
+- name: Index template and ISM policy
+  hosts: os-hot
+  roles:
+    - role: os_ism
+      vars:
+        os_ism_admin_password: "{{ admin_password }}"

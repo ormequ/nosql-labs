@@ -1,0 +1,69 @@
+- name: Download OpenSearch Dashboards tarball
+  tags: [dashboards, download]
+  ansible.builtin.get_url:
+    url: "{{ dashboards_install_tarball_url }}"
+    dest: "{{ dashboards_install_tarball_path }}"
+    mode: "0644"
+
+- name: Extract OpenSearch Dashboards
+  tags: [dashboards, install]
+  ansible.builtin.unarchive:
+    src: "{{ dashboards_install_tarball_path }}"
+    dest: /opt
+    owner: "{{ os_user }}"
+    group: "{{ os_user }}"
+    remote_src: true
+    creates: "{{ dashboards_install_extract_dir }}"
+
+- name: Link /opt/opensearch-dashboards
+  tags: [dashboards, install]
+  ansible.builtin.file:
+    src: "{{ dashboards_install_extract_dir }}"
+    dest: "{{ dashboards_install_home }}"
+    state: link
+
+- name: Pin Dashboards node memory
+  tags: [dashboards, install]
+  ansible.builtin.lineinfile:
+    path: "{{ dashboards_install_home }}/config/node.options"
+    state: present
+    regexp: "^--max-old-space-size"
+    line: "--max-old-space-size={{ dashboards_install_node_mem_mb }}"
+
+- name: Install Dashboards config
+  tags: [dashboards, configure]
+  ansible.builtin.template:
+    src: opensearch_dashboards.yml.j2
+    dest: "{{ dashboards_install_home }}/config/opensearch_dashboards.yml"
+    owner: "{{ os_user }}"
+    group: "{{ os_user }}"
+    mode: "0640"
+  notify: Restart dashboards
+
+- name: Install Dashboards systemd unit
+  tags: [dashboards, configure]
+  ansible.builtin.template:
+    src: opensearch-dashboards.service.j2
+    dest: /etc/systemd/system/opensearch-dashboards.service
+    mode: "0644"
+  notify: Restart dashboards
+
+# the handler start must be the only start, a restart during the saved-objects migration breaks Dashboards
+- name: Apply config changes before the first start
+  tags: [dashboards]
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start Dashboards
+  tags: [dashboards]
+  ansible.builtin.systemd:
+    name: opensearch-dashboards
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Wait for Dashboards to listen
+  tags: [dashboards]
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ dashboards_install_port }}"
+    timeout: 180

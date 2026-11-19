@@ -1,0 +1,138 @@
+- name: Install nginx
+  tags: [nginx, install]
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+    update_cache: true
+    # nginx comes from the Ubuntu mirror, so a cached index is enough
+    cache_valid_time: 3600
+
+- name: Create site root
+  tags: [nginx]
+  ansible.builtin.file:
+    path: /var/www/lab2
+    state: directory
+    mode: "0755"
+
+- name: Copy static page
+  tags: [nginx]
+  ansible.builtin.copy:
+    src: index.html
+    dest: /var/www/lab2/index.html
+    mode: "0644"
+  notify: Reload nginx
+
+- name: Install JSON log format snippet
+  tags: [nginx, json-log]
+  ansible.builtin.copy:
+    src: nginx-log-format.conf
+    dest: /etc/nginx/conf.d/lab2-log-format.conf
+    mode: "0644"
+  notify: Reload nginx
+
+- name: Install site config
+  tags: [nginx]
+  ansible.builtin.copy:
+    src: nginx-site.conf
+    dest: /etc/nginx/sites-available/lab2.conf
+    mode: "0644"
+  notify: Reload nginx
+
+- name: Disable default site
+  tags: [nginx]
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Reload nginx
+
+- name: Enable lab2 site
+  tags: [nginx]
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/lab2.conf
+    dest: /etc/nginx/sites-enabled/lab2.conf
+    state: link
+  notify: Reload nginx
+
+# flush before the first start: the handler then starts nginx once, no reload hits a booting service
+- name: Apply config changes before the first nginx start
+  tags: [nginx]
+  ansible.builtin.meta: flush_handlers
+
+- name: Start nginx
+  tags: [nginx]
+  ansible.builtin.systemd:
+    name: nginx
+    enabled: true
+    state: started
+
+- name: Smoke-test the nginx page
+  tags: [nginx, verify]
+  ansible.builtin.uri:
+    url: http://127.0.0.1/health
+  changed_when: false
+
+- name: Install fluent-bit apt key
+  tags: [fluentbit, install]
+  ansible.builtin.copy:
+    src: fluentbit.key
+    dest: /usr/share/keyrings/fluentbit-keyring.asc
+    mode: "0644"
+
+- name: Add fluent-bit apt repository
+  tags: [fluentbit, install]
+  ansible.builtin.apt_repository:
+    repo: "{{ nginx_fluentbit_repo_line }}"
+    filename: fluent-bit
+    state: present
+
+- name: Install fluent-bit
+  tags: [fluentbit, install]
+  ansible.builtin.apt:
+    name: fluent-bit
+    state: present
+
+- name: Create fluent-bit config and state dirs
+  tags: [fluentbit]
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - /etc/fluent-bit
+    - /var/lib/fluent-bit
+
+- name: Install fluent-bit config
+  tags: [fluentbit]
+  ansible.builtin.template:
+    src: fluent-bit.conf.j2
+    dest: /etc/fluent-bit/fluent-bit.conf
+    mode: "0640"
+  notify: Restart fluent-bit
+
+- name: Install parsers config
+  tags: [fluentbit]
+  ansible.builtin.copy:
+    src: parsers.conf
+    dest: /etc/fluent-bit/parsers.conf
+    mode: "0644"
+  notify: Restart fluent-bit
+
+# flush before the first start: the handler then starts fluent-bit once
+- name: Apply config changes before the first fluent-bit start
+  tags: [fluentbit]
+  ansible.builtin.meta: flush_handlers
+
+- name: Run fluent-bit under systemd
+  tags: [fluentbit]
+  ansible.builtin.systemd:
+    name: fluent-bit
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Install the load generator
+  tags: [loadgen]
+  ansible.builtin.copy:
+    src: load.sh
+    dest: /usr/local/bin/lab2-load.sh
+    mode: "0755"

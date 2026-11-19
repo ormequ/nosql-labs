@@ -1,0 +1,21 @@
+all:
+  children:
+    lab2:
+      hosts:
+        os-hot:
+          ansible_host: "{{ lookup('env', 'LAB2_HOT_HOST') }}"
+          os_short: hot
+        os-warm:
+          ansible_host: "{{ lookup('env', 'LAB2_WARM_HOST') }}"
+          os_short: warm
+        os-dash:
+          ansible_host: "{{ lookup('env', 'LAB2_DASH_HOST') }}"
+          os_short: dash
+      vars:
+        ansible_user: root
+        ansible_ssh_common_args: >-
+          -o ProxyJump=root@{{ lookup('env', 'LAB2_JUMP_HOST') }}
+    # cert generation and securityadmin run on dash (it has egress)
+    os_certs:
+      hosts:
+        os-dash: {}

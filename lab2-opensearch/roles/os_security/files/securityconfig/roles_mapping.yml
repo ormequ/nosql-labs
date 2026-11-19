@@ -1,0 +1,29 @@
+_meta:
+  type: "rolesmapping"
+  config_version: 2
+
+# One user per role, one role per user
+all_access:
+  reserved: false
+  users:
+    - "admin"
+
+log_writer:
+  reserved: false
+  users:
+    - "log_writer"
+
+log_reader:
+  reserved: false
+  users:
+    - "log_reader"
+
+log_monitor:
+  reserved: false
+  users:
+    - "log_monitor"
+
+kibana_server:
+  reserved: true
+  users:
+    - "kibanaserver"

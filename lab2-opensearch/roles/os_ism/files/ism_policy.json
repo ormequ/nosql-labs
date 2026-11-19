@@ -1,0 +1,58 @@
+{
+  "policy": {
+    "description": "logs-nginx lifecycle: rollover at 1mb or 1m, move to warm, delete after 10m",
+    "default_state": "hot",
+    "ism_template": [
+      {
+        "index_patterns": ["logs-nginx*"],
+        "priority": 100
+      }
+    ],
+    "states": [
+      {
+        "name": "hot",
+        "actions": [
+          {
+            "rollover": {
+              "min_size": "1mb",
+              "min_index_age": "1m"
+            }
+          }
+        ],
+        "transitions": [
+          {
+            "state_name": "warm",
+            "conditions": {
+              "min_rollover_age": "1m"
+            }
+          }
+        ]
+      },
+      {
+        "name": "warm",
+        "actions": [
+          {
+            "allocation": {
+              "require": { "temp": "warm" }
+            }
+          }
+        ],
+        "transitions": [
+          {
+            "state_name": "delete",
+            "conditions": {
+              "min_index_age": "10m"
+            }
+          }
+        ]
+      },
+      {
+        "name": "delete",
+        "actions": [
+          { "delete": {} }
+        ],
+        "transitions": []
+      }
+    ]
+  }
+}

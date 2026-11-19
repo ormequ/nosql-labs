@@ -1,0 +1,8 @@
+# securityadmin re-pushes the same YAML into the running cluster, only the certs host holds the admin key
+- name: Apply security configuration with securityadmin
+  hosts: os_certs
+  tasks:
+    - name: Apply security configuration
+      ansible.builtin.import_role:
+        name: os_security
+        tasks_from: securityadmin

@@ -1,0 +1,4 @@
+- name: Common preparation
+  hosts: lab2
+  roles:
+    - role: common_pre

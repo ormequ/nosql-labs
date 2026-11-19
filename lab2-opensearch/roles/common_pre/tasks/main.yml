@@ -1,0 +1,14 @@
+- name: Install required packages
+  tags: [common, install]
+  ansible.builtin.apt:
+    name:
+      - openssl
+      - curl
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Set short hostname
+  tags: [common, hostname]
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"

@@ -1,0 +1,7 @@
+# Task 4.1-4.3: Prometheus plugin, metrics and dashboard
+- name: OpenSearch monitoring
+  hosts: os-dash
+  roles:
+    - role: os_monitoring
+      vars:
+        os_monitoring_scrape_password: "{{ monitor_password }}"

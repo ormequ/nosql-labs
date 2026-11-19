@@ -1,0 +1,2 @@
+os_install_version: "3.8.0"
+os_install_heap_mb: "{{ 1024 if os_short == 'dash' else (ansible_memtotal_mb // 2) }}"

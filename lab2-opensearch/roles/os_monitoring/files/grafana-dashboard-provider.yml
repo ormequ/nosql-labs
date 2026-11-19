@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: lab2
+    folder: Lab2
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards

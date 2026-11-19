@@ -1,0 +1,9 @@
+# first start: the security index initializes itself from the YAML files that 30-security.yml put in place
+- name: Start OpenSearch and check cluster health
+  hosts: lab2
+  tags: [opensearch, start]
+  tasks:
+    - name: Start OpenSearch and wait for the cluster
+      ansible.builtin.import_role:
+        name: os_install
+        tasks_from: start

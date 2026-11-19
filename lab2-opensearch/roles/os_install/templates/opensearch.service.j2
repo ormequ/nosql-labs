@@ -1,0 +1,21 @@
+[Unit]
+Description=OpenSearch {{ os_install_version }}
+Documentation=https://opensearch.org
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# the tarball script foregrounds itself, hence Type=simple
+User={{ os_user }}
+Group={{ os_user }}
+ExecStart={{ os_home }}/bin/opensearch
+ExecStop=/bin/kill -TERM $MAINPID
+LimitNOFILE=65536
+LimitNPROC=4096
+TimeoutStartSec=180
+TimeoutStopSec=60
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

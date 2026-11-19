@@ -1,0 +1,34 @@
+cluster.name: {{ os_install_cluster_name }}
+node.name: {{ inventory_hostname }}
+{% if os_short == 'dash' %}
+node.roles: [ cluster_manager ]
+{% else %}
+node.roles: [ data ]
+node.attr.temp: {{ os_short }}
+{% endif %}
+
+# loopback for local tools, the private IP for Prometheus scrapes and discovery
+network.host: [_local_, _site_]
+http.port: {{ os_port_rest }}
+transport.port: {{ os_install_port_transport }}
+
+discovery.seed_hosts: {{ os_install_seed_hosts | to_yaml(default_flow_style=True) | trim }}
+cluster.initial_cluster_manager_nodes: {{ os_install_initial_managers | to_yaml(default_flow_style=True) | trim }}
+
+path.data: {{ os_home }}/data
+path.logs: {{ os_home }}/logs
+
+plugins.security.ssl.transport.pemcert_filepath: certs/node.pem
+plugins.security.ssl.transport.pemkey_filepath: certs/node-key.pem
+plugins.security.ssl.transport.pemtrustedcas_filepath: certs/root-ca.pem
+plugins.security.ssl.http.enabled: true
+plugins.security.ssl.http.pemcert_filepath: certs/node.pem
+plugins.security.ssl.http.pemkey_filepath: certs/node-key.pem
+plugins.security.ssl.http.pemtrustedcas_filepath: certs/root-ca.pem
+plugins.security.allow_default_init_securityindex: true
+plugins.security.authcz.admin_dn:
+  - "{{ os_install_admin_dn }}"
+plugins.security.nodes_dn:
+{% for n in os_install_nodes_dn %}
+  - "{{ n }}"
+{% endfor %}

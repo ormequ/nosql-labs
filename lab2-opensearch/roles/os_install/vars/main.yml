@@ -1,0 +1,21 @@
+os_install_artifact_base: "https://artifacts.opensearch.org/releases/bundle/opensearch"
+os_install_tarball_url: "{{ os_install_artifact_base }}/{{ os_install_version }}/opensearch-{{ os_install_version }}-linux-x64.tar.gz"
+os_install_tarball_path: "/tmp/opensearch-{{ os_install_version }}.tar.gz"
+os_install_cluster_name: lab2-os
+os_install_port_transport: 9300
+os_install_extract_dir: "/opt/opensearch-{{ os_install_version }}"
+# the exporter plugin release is tagged <version>.0 for each OpenSearch release
+os_install_prometheus_base: "https://github.com/opensearch-project/opensearch-prometheus-exporter/releases/download"
+os_install_prometheus_plugin_url: "{{ os_install_prometheus_base }}/{{ os_install_version }}.0/prometheus-exporter-{{ os_install_version }}.0.zip"
+os_install_seed_hosts:
+  - "{{ hostvars['os-hot'].ansible_host }}"
+  - "{{ hostvars['os-warm'].ansible_host }}"
+  - "{{ hostvars['os-dash'].ansible_host }}"
+# only dash holds cluster_manager. Data-only nodes in the bootstrap list never elect one
+os_install_initial_managers:
+  - os-dash
+os_install_admin_dn: "O=lab2,CN=admin"
+os_install_nodes_dn:
+  - "O=lab2,CN=os-hot"
+  - "O=lab2,CN=os-warm"
+  - "O=lab2,CN=os-dash"

@@ -1,0 +1,28 @@
+{
+  "index_patterns": ["logs-nginx*"],
+  "data_stream": {},
+  "template": {
+    "settings": {
+      "index.number_of_shards": 1,
+      "index.number_of_replicas": 0,
+      "index.routing.allocation.require.temp": "hot"
+    },
+    "mappings": {
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "remote_addr": { "type": "ip" },
+        "request_length": { "type": "long" },
+        "body_bytes_sent": { "type": "long" },
+        "request_time": { "type": "half_float" },
+        "upstream_response_time": { "type": "half_float" },
+        "status": { "type": "integer" },
+        "request": { "type": "text" },
+        "request_method": { "type": "keyword" },
+        "http_user_agent": { "type": "text" },
+        "http_referrer": { "type": "text" },
+        "server_name": { "type": "keyword" },
+        "time_local": { "type": "date", "format": "dd/MMM/yyyy:HH:mm:ss Z||strict_date_optional_time" }
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+# SANs keyed by inventory host: the node IP plus 127.0.0.1, so TLS checks pass on loopback probes too
+os_security_san_map:
+  os-hot: ['IP:{{ hostvars["os-hot"].ansible_host }}', "IP:127.0.0.1"]
+  os-warm: ['IP:{{ hostvars["os-warm"].ansible_host }}', "IP:127.0.0.1"]
+  os-dash: ['IP:{{ hostvars["os-dash"].ansible_host }}', "IP:127.0.0.1"]
+# internal users and their passwords from the vault
+os_security_internal_users:
+  - { name: admin, password: "{{ admin_password }}", reserved: true, description: "Cluster admin" }
+  - { name: kibanaserver, password: "{{ kibana_server_password }}", reserved: true, description: "OpenSearch Dashboards server account" }
+  - { name: log_writer, password: "{{ writer_password }}", reserved: false, description: "Writes nginx logs to the logs-nginx data stream" }
+  - { name: log_reader, password: "{{ reader_password }}", reserved: false, description: "Reads logs* indexes" }
+  - { name: log_monitor, password: "{{ monitor_password }}", reserved: false, description: "Reads cluster and node metrics" }

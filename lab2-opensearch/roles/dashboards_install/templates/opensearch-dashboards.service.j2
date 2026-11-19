@@ -1,0 +1,15 @@
+[Unit]
+Description=OpenSearch Dashboards {{ dashboards_install_version }}
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ os_user }}
+Group={{ os_user }}
+ExecStart={{ dashboards_install_home }}/bin/opensearch-dashboards
+Restart=on-failure
+TimeoutStartSec=180
+
+[Install]
+WantedBy=multi-user.target

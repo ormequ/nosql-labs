@@ -1,0 +1,4 @@
+os_monitoring_scrape_user: log_monitor
+# os_monitoring_scrape_password comes from the calling playbook's vault
+# prometheus cannot read the 0750 opensearch certs dir, so its CA copy lives beside it
+os_monitoring_ca_file: /etc/prometheus/root-ca.pem

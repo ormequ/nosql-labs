@@ -1,0 +1,14 @@
+_meta:
+  type: "internalusers"
+  config_version: 2
+
+# Everything is managed here so securityadmin stays idempotent (no API-created users)
+{% for user in os_security_hash_run.results %}
+{{ user.item.name }}:
+  hash: "{{ user.stdout }}"
+  reserved: {{ user.item.reserved | lower }}
+  description: "{{ user.item.description }}"
+{% if not loop.last %}
+
+{% endif %}
+{% endfor %}

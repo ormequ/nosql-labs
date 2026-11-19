@@ -1,0 +1,31 @@
+# securityadmin re-pushes the YAML files already on the nodes into the running index
+- name: Wait for the local REST port
+  tags: [security, apply]
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ os_port_rest }}"
+    timeout: 180
+
+# the tarball ships tools without the executable bit
+- name: Make securityadmin.sh executable
+  tags: [security, apply]
+  ansible.builtin.file:
+    path: "{{ os_home }}/plugins/opensearch-security/tools/securityadmin.sh"
+    mode: "0755"
+
+- name: Load security configuration with securityadmin
+  tags: [security, apply]
+  ansible.builtin.command:
+    cmd: >-
+      {{ os_home }}/plugins/opensearch-security/tools/securityadmin.sh
+      -cd {{ os_home }}/config/opensearch-security
+      -icl -nhnv
+      -h 127.0.0.1 -p {{ os_port_rest }}
+      -cacert {{ os_ca_file }}
+      -cert {{ os_cert_dir }}/admin.pem
+      -key {{ os_cert_dir }}/admin-key.pem
+  environment:
+    # the tool fails without a JVM, hence the bundled JDK
+    OPENSEARCH_JAVA_HOME: "{{ os_home }}/jdk"
+  # identical files rewrite the same entries, changed only when distribute pushed new content
+  changed_when: os_security_config_changed | default(false)

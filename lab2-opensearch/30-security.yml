@@ -1,0 +1,16 @@
+# Task 1.1a + Task 2.1 + Task 2.2: TLS, roles and users
+- name: Generate TLS certificates
+  hosts: os_certs
+  tasks:
+    - name: Generate CA and certificates
+      ansible.builtin.import_role:
+        name: os_security
+        tasks_from: ca
+
+- name: Distribute certificates and securityconfig
+  hosts: lab2
+  tasks:
+    - name: Distribute certificates and securityconfig
+      ansible.builtin.import_role:
+        name: os_security
+        tasks_from: distribute
