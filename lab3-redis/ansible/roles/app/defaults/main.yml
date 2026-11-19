@@ -1,0 +1,7 @@
+---
+app_dir: /opt/rates-app
+app_user: rates
+# requests per minute for each tier
+app_limits: free=60,pro=600
+app_key_tiers: loadtest-pro-1=pro,budget-pro-1=pro
+app_window_seconds: 60

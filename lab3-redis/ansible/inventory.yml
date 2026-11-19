@@ -1,0 +1,7 @@
+all:
+  children:
+    lab3:
+      hosts:
+        redis-vm:
+          ansible_host: "{{ lookup('env', 'LAB3_REDIS_HOST') }}"
+          ansible_user: root

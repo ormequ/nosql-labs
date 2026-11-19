@@ -1,0 +1,71 @@
+---
+# Task 4: Deploy Redis and its components
+
+- name: Official Redis apt repository
+  ansible.builtin.deb822_repository:
+    name: redis
+    types: [deb]
+    uris: ["{{ redis_repo_url }}"]
+    suites: ["{{ ansible_facts['distribution_release'] }}"]
+    components: [main]
+    signed_by: "{{ redis_repo_key_url }}"
+    state: present
+  tags: [install]
+
+- name: Install redis-server
+  ansible.builtin.apt:
+    name: redis-server
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  tags: [install]
+
+- name: Redis config
+  ansible.builtin.template:
+    src: redis.conf.j2
+    dest: "{{ redis_conf_path }}"
+    owner: redis
+    group: redis
+    mode: "0640"
+  notify: Restart redis
+  tags: [configure]
+
+# the checks below need the applied config, hence an immediate restart
+- name: Flush handlers before checks
+  ansible.builtin.meta: flush_handlers
+  tags: [configure]
+
+- name: Redis enabled and started
+  ansible.builtin.systemd:
+    name: "{{ redis_service_name }}"
+    state: started
+    enabled: true
+  tags: [configure]
+
+- name: PING without password gives NOAUTH
+  ansible.builtin.command:
+    argv: [redis-cli, ping]
+  register: redis_ping_noauth
+  failed_when: redis_ping_noauth.stdout is match('PONG')
+  changed_when: false
+  tags: [verify]
+
+- name: PING with vault password gives PONG
+  ansible.builtin.command:
+    argv: [redis-cli, ping]
+  environment:
+    REDISCLI_AUTH: "{{ redis_password }}"
+  register: redis_ping_auth
+  failed_when: redis_ping_auth.stdout != 'PONG'
+  changed_when: false
+  tags: [verify]
+
+- name: CONFIG GET confirms maxmemory-policy
+  ansible.builtin.command:
+    argv: [redis-cli, config, get, maxmemory-policy]
+  environment:
+    REDISCLI_AUTH: "{{ redis_password }}"
+  register: redis_cfg_policy
+  changed_when: false
+  failed_when: redis_cfg_policy.stdout_lines[1] != redis_eviction_policy
+  tags: [verify]

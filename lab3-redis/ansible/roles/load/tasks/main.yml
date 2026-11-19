@@ -1,0 +1,40 @@
+---
+# Task 6: Load testing
+
+- name: K6 release archive
+  ansible.builtin.get_url:
+    url: "{{ load_k6_url }}"
+    dest: "/tmp/{{ load_k6_url | basename }}"
+    mode: "0644"
+  tags: [k6]
+
+- name: Unpack k6
+  ansible.builtin.unarchive:
+    src: "/tmp/{{ load_k6_url | basename }}"
+    dest: /tmp
+    remote_src: true
+    creates: "/tmp/k6-v{{ load_k6_version }}-linux-amd64/k6"
+  tags: [k6]
+
+- name: K6 binary
+  ansible.builtin.copy:
+    src: "/tmp/k6-v{{ load_k6_version }}-linux-amd64/k6"
+    dest: /usr/local/bin/k6
+    mode: "0755"
+    remote_src: true
+  tags: [k6]
+
+- name: Load test directory
+  ansible.builtin.file:
+    path: "{{ load_dir }}"
+    state: directory
+    mode: "0755"
+  tags: [scripts]
+
+- name: Load test scripts
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ load_dir }}/{{ item }}"
+    mode: "0644"
+  loop: [ramp.js, within.js]
+  tags: [scripts]

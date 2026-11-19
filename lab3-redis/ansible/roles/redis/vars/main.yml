@@ -1,0 +1,5 @@
+---
+redis_conf_path: /etc/redis/redis.conf
+redis_service_name: redis-server
+redis_repo_url: https://packages.redis.io/deb
+redis_repo_key_url: https://packages.redis.io/gpg

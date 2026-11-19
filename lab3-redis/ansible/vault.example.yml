@@ -1,0 +1,2 @@
+# copy to group_vars/lab3/vault.yml, set the password, ansible-vault encrypt it
+vault_redis_password: change-me

@@ -1,0 +1,18 @@
+# {{ ansible_managed }}
+# the app runs on the same VM, so nothing outside it needs Redis
+bind 127.0.0.1
+port {{ redis_port }}
+requirepass {{ redis_password }}
+
+# evicting a limiter key would silently reset a client's count
+maxmemory {{ redis_memory_limit }}
+maxmemory-policy {{ redis_eviction_policy }}
+
+# limiter state need not survive a restart, so no RDB and no AOF
+save ""
+appendonly no
+
+# the packaged unit is Type=notify, so redis must report readiness via sd_notify
+supervised systemd
+logfile /var/log/redis/redis-server.log
+dir /var/lib/redis

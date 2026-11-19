@@ -1,0 +1,92 @@
+---
+# Task 5: Minimal working application
+
+- name: Python venv package
+  ansible.builtin.apt:
+    name: python3-venv
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  tags: [packages]
+
+- name: App system user
+  ansible.builtin.user:
+    name: "{{ app_user }}"
+    system: true
+    create_home: false
+    shell: /usr/sbin/nologin
+  tags: [service]
+
+- name: App directory
+  ansible.builtin.file:
+    path: "{{ app_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0750"
+  tags: [service]
+
+- name: App code and Lua script
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ app_dir }}/{{ item }}"
+    mode: "0644"
+  loop: "{{ app_sources }}"
+  notify: Restart rates-api
+  tags: [service]
+
+- name: App dependencies from requirements.txt
+  ansible.builtin.pip:
+    requirements: "{{ app_dir }}/requirements.txt"
+    virtualenv: "{{ app_venv }}"
+    virtualenv_command: python3 -m venv
+  notify: Restart rates-api
+  tags: [venv]
+
+- name: Rates-api systemd unit
+  ansible.builtin.template:
+    src: rates-api.service.j2
+    dest: /etc/systemd/system/{{ app_service_name }}.service
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Restart rates-api
+  tags: [service]
+
+- name: Rates-api enabled and started
+  ansible.builtin.systemd:
+    name: "{{ app_service_name }}"
+    state: started
+    enabled: true
+  tags: [service]
+
+- name: Rates-api health check
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ app_port }}/health"
+  register: app_health
+  retries: 5
+  delay: 3
+  until: app_health.status == 200
+  tags: [verify]
+
+- name: Single /rates request returns 200
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ app_port }}/rates"
+    headers:
+      X-API-KEY: "ansible-check-key"
+  register: app_rates_probe
+  tags: [verify]
+
+- name: X-RateLimit-Remaining header present
+  # uri registers each response header as a flattened field, not a headers dict
+  ansible.builtin.assert:
+    that:
+      - app_rates_probe.x_ratelimit_remaining is defined
+    success_msg: "rate limit headers ok"
+  tags: [verify]
+
+- name: No-key request returns 401
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ app_port }}/rates"
+    status_code: 401
+  tags: [verify]

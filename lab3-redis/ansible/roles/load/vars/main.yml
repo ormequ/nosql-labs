@@ -1,0 +1,3 @@
+---
+load_k6_url: "https://github.com/grafana/k6/releases/download/v{{ load_k6_version }}/k6-v{{ load_k6_version }}-linux-amd64.tar.gz"
+load_dir: /opt/rates-load-test
