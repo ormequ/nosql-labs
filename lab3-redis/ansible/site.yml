@@ -1,0 +1,12 @@
+---
+- name: Redis rate limiter
+  hosts: lab3
+  roles:
+    - role: redis
+      tags: [redis]
+    - role: app
+      tags: [app]
+    - role: load
+      tags: [load]
+    - role: monitoring
+      tags: [monitoring]

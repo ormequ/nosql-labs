@@ -1,0 +1,8 @@
+---
+app_venv: "{{ app_dir }}/venv"
+app_service_name: rates-api
+app_redis_host: "127.0.0.1"
+app_sources:
+  - main.py
+  - ratelimit.lua
+  - requirements.txt

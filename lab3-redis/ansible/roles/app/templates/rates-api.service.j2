@@ -1,0 +1,27 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Rates API (lab3, rate limiter on Redis)
+# Requires stops the app with Redis, WantedBy starts it again with Redis
+Requires=redis-server.service
+After=redis-server.service
+
+[Service]
+User={{ app_user }}
+Group={{ app_user }}
+WorkingDirectory={{ app_dir }}
+Environment=APP_REDIS_HOST={{ app_redis_host }}
+Environment=APP_REDIS_PORT={{ redis_port }}
+Environment=APP_REDIS_PASSWORD={{ redis_password }}
+Environment=APP_LUA_SCRIPT={{ app_dir }}/ratelimit.lua
+Environment=APP_LIMITS={{ app_limits }}
+Environment=APP_KEY_TIERS={{ app_key_tiers }}
+Environment=APP_WINDOW={{ app_window_seconds }}
+# both uvicorn workers count into this shared dir so /metrics serves the whole traffic
+Environment=PROMETHEUS_MULTIPROC_DIR=/run/rates-api-metrics
+RuntimeDirectory=rates-api-metrics
+Restart=always
+RestartSec=3
+ExecStart={{ app_venv }}/bin/uvicorn main:app --host 127.0.0.1 --port {{ app_port }} --workers 2
+
+[Install]
+WantedBy=multi-user.target redis-server.service

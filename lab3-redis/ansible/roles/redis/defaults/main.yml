@@ -1,0 +1,4 @@
+---
+redis_memory_limit: 256mb
+# limiter keys are small sorted sets that live at most 60s, so noeviction is what we need
+redis_eviction_policy: noeviction

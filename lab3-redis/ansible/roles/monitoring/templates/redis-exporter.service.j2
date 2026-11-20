@@ -1,0 +1,17 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Redis exporter (Prometheus)
+After=redis-server.service
+
+[Service]
+User={{ monitoring_user }}
+# the password stays off the command line, where ps would show it
+Environment=REDIS_PASSWORD={{ redis_password }}
+ExecStart=/usr/local/bin/redis_exporter \
+  -redis.addr 127.0.0.1:{{ redis_port }} \
+  -web.listen-address 127.0.0.1:{{ monitoring_redis_exporter_port }}
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,5 @@
+---
+# used by redis, app and monitoring: roles cannot read each other's vars
+redis_port: 6379
+redis_password: "{{ vault_redis_password }}"
+app_port: 8080

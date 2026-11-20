@@ -1,0 +1,16 @@
+---
+monitoring_prometheus_url: >-
+  https://github.com/prometheus/prometheus/releases/download/v{{ monitoring_prometheus_version
+  }}/prometheus-{{ monitoring_prometheus_version }}.linux-amd64.tar.gz
+monitoring_redis_exporter_url: >-
+  https://github.com/oliver006/redis_exporter/releases/download/v{{ monitoring_redis_exporter_version
+  }}/redis_exporter-v{{ monitoring_redis_exporter_version }}.linux-amd64.tar.gz
+monitoring_grafana_deb_url: >-
+  https://github.com/grafana/grafana/releases/download/v{{ monitoring_grafana_version
+  }}/grafana_{{ monitoring_grafana_version }}_{{ monitoring_grafana_build }}_linux_amd64.deb
+monitoring_user: prometheus
+monitoring_binaries:
+  - url: "{{ monitoring_prometheus_url }}"
+    path: "prometheus-{{ monitoring_prometheus_version }}.linux-amd64/prometheus"
+  - url: "{{ monitoring_redis_exporter_url }}"
+    path: "redis_exporter-v{{ monitoring_redis_exporter_version }}.linux-amd64/redis_exporter"
